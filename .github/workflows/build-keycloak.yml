@@ -15,7 +15,7 @@ jobs:
         
       - name: CD Quarkus
         env:
-          JAVA_HOME: /usr/lib64/jvm/java-11-openjdk-11
+          JAVA_HOME: /usr/lib/jvm/temurin-11-jdk-amd64
         run: |
               whereis java
               cd quarkus
