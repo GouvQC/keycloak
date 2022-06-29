@@ -1,0 +1,30 @@
+name: Build Keycloak
+
+on:
+  # Permettre d'exécuter manuellement depuis l'onglet Actions
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: keycloak
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        
+      - name: CD Quarkus
+        env:
+          JAVA_HOME: /usr/lib64/jvm/java-11-openjdk-11
+        run: |
+              whereis java
+              cd quarkus
+              pwd
+    
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: 'maven'
+      - name: Build with Maven
+        run: mvn -f ../pom.xml clean install -DskipTestsuite -DskipExamples -DskipTests -X -B
