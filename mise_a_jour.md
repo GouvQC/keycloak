@@ -8,7 +8,7 @@ Procédure pour mettre à jour https://github.com/GouvQC/keycloak à partir de l
 
 ### Préalables
   - Un compte GitHub avec les droits en écriture sur GouvQC/keycloak
-  - Un jeton d'accès GitHub (Personal Access Token) sur ce compte
+  - Un jeton d'accès GitHub (Personal Access Token ou *PAT*) sur ce compte
 
 ### Préparatifs
 
