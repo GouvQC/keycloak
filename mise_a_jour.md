@@ -53,7 +53,7 @@ Procédure pour mettre à jour https://github.com/GouvQC/keycloak à partir de l
 
 ### Retour en arrière
 
-En cas d'erreur, il est possible de remettre le dépôt vers son état original
+En cas d'erreur, il est possible de remettre le dépôt vers son état original en utilisant la branche de sauvegarde ou avec les opérations suivantes:
 
 1. Faire un reset vers le bon commit
 	  
