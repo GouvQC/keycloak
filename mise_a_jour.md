@@ -57,7 +57,7 @@ En cas d'erreur, il est possible de remettre le dépôt vers son état original 
 
 1. Faire un reset vers le bon commit
 	  
-    `git reset --hard *HASH*`
+    `git reset --hard HASH`
     
 2. Envoyer le reset	
 	  
