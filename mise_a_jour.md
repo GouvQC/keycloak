@@ -13,7 +13,8 @@ Procédure pour mettre à jour https://github.com/GouvQC/keycloak à partir de l
 ### Préparatifs
 
 1. Cloner https://github.com/GouvQC/keycloak sur une machine locale
-2. S'authentifier au push en utilisant le *PAT*
+2. Aller dans le clone.
+3. S'authentifier au push en utilisant le *PAT*
 
     `git remote set-url origin https://PAT:PAT@github.com/GouvQC/keycloak/`
     
