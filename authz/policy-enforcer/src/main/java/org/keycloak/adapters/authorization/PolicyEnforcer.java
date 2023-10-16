@@ -82,7 +82,25 @@ public class PolicyEnforcer {
 
     protected PolicyEnforcer(Builder builder) {
         enforcerConfig = builder.getEnforcerConfig();
-        authzClient = AuthzClient.create(builder.authzClientConfig);
+        Configuration authzClientConfig = builder.authzClientConfig;
+
+        if (authzClientConfig.getRealm() == null) {
+            authzClientConfig.setRealm(enforcerConfig.getRealm());
+        }
+
+        if (authzClientConfig.getAuthServerUrl() == null) {
+            authzClientConfig.setAuthServerUrl(enforcerConfig.getAuthServerUrl());
+        }
+
+        if (authzClientConfig.getCredentials() == null || authzClientConfig.getCredentials().isEmpty()) {
+            authzClientConfig.setCredentials(enforcerConfig.getCredentials());
+        }
+
+        if (authzClientConfig.getResource() == null) {
+            authzClientConfig.setResource(enforcerConfig.getResource());
+        }
+
+        authzClient = AuthzClient.create(authzClientConfig);
         httpClient = authzClient.getConfiguration().getHttpClient();
         pathMatcher = new PathConfigMatcher(builder.getEnforcerConfig(), authzClient);
         paths = pathMatcher.getPathConfig();
@@ -111,6 +129,10 @@ public class PolicyEnforcer {
 
     public HttpClient getHttpClient() {
         return httpClient;
+    }
+
+    public AuthzClient getAuthzClient() {
+        return authzClient;
     }
 
     public Map<String, PathConfig> getPaths() {
@@ -315,9 +337,9 @@ public class PolicyEnforcer {
             String ticket = getPermissionTicket(pathConfig, methodConfig, authzClient, request);
 
             if (ticket != null) {
-                response.sendError(401);
                 response.setHeader("WWW-Authenticate", new StringBuilder("UMA realm=\"").append(authzClient.getConfiguration().getRealm()).append("\"").append(",as_uri=\"")
                         .append(authzClient.getServerConfiguration().getIssuer()).append("\"").append(",ticket=\"").append(ticket).append("\"").toString());
+                response.sendError(401);
             } else {
                 response.sendError(403);
             }
@@ -338,8 +360,8 @@ public class PolicyEnforcer {
         String accessDeniedPath = enforcerConfig.getOnDenyRedirectTo();
 
         if (accessDeniedPath != null) {
-            response.sendError(302);
             response.setHeader("Location", accessDeniedPath);
+            response.sendError(302);
         } else {
             response.sendError(403);
         }

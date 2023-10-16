@@ -1,21 +1,24 @@
 import { useServerInfo } from "../context/server-info/ServerInfoProvider";
 
 export enum Feature {
+  AdminFineGrainedAuthz = "ADMIN_FINE_GRAINED_AUTHZ",
+  ClientPolicies = "CLIENT_POLICIES",
   DeclarativeUserProfile = "DECLARATIVE_USER_PROFILE",
+  Kerberos = "KERBEROS",
+  DynamicScopes = "DYNAMIC_SCOPES",
+  DPoP = "DPOP",
 }
 
 export default function useIsFeatureEnabled() {
-  const { profileInfo } = useServerInfo();
-
-  const experimentalFeatures = profileInfo?.experimentalFeatures ?? [];
-  const previewFeatures = profileInfo?.previewFeatures ?? [];
-  const disabledFilters = profileInfo?.disabledFeatures ?? [];
-  const allFeatures = [...experimentalFeatures, ...previewFeatures];
-  const enabledFeatures = allFeatures.filter(
-    (feature) => !disabledFilters.includes(feature)
-  );
+  const { features } = useServerInfo();
 
   return function isFeatureEnabled(feature: Feature) {
-    return enabledFeatures.includes(feature);
+    if (!features) {
+      return false;
+    }
+    return features
+      .filter((f) => f.enabled)
+      .map((f) => f.name)
+      .includes(feature);
   };
 }

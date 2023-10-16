@@ -44,7 +44,8 @@ public class Profile {
         AUTHORIZATION("Authorization Service", Type.DEFAULT),
 
         ACCOUNT_API("Account Management REST API", Type.DEFAULT),
-        ACCOUNT2("New Account Management Console", Type.DEFAULT, Feature.ACCOUNT_API),
+        ACCOUNT2("Account Management Console version 2", Type.DEFAULT, Feature.ACCOUNT_API),
+        ACCOUNT3("Account Management Console version 3", Type.PREVIEW, Feature.ACCOUNT_API),
 
         ADMIN_FINE_GRAINED_AUTHZ("Fine-Grained Admin Permissions", Type.PREVIEW),
 
@@ -55,8 +56,6 @@ public class Profile {
         DOCKER("Docker Registry protocol", Type.DISABLED_BY_DEFAULT),
 
         IMPERSONATION("Ability for admins to impersonate users", Type.DEFAULT),
-
-        OPENSHIFT_INTEGRATION("Extension to enable securing OpenShift", Type.PREVIEW),
 
         SCRIPTS("Write custom authenticators using JavaScript", Type.PREVIEW),
 
@@ -89,10 +88,14 @@ public class Profile {
 
         JS_ADAPTER("Host keycloak.js and keycloak-authz.js through the Keycloak sever", Type.DEFAULT),
 
-        FIPS("FIPS 140-2 mode", Type.PREVIEW_DISABLED_BY_DEFAULT);
+        FIPS("FIPS 140-2 mode", Type.DISABLED_BY_DEFAULT),
+
+        DPOP("OAuth 2.0 Demonstrating Proof-of-Possession at the Application Layer", Type.PREVIEW),
+
+        LINKEDIN_OAUTH("LinkedIn Social Identity Provider based on OAuth", Type.DEPRECATED);
 
         private final Type type;
-        private String label;
+        private final String label;
 
         private Set<Feature> dependencies;
         Feature(String label, Type type) {
@@ -130,7 +133,7 @@ public class Profile {
             EXPERIMENTAL("Experimental"),
             DEPRECATED("Deprecated");
 
-            private String label;
+            private final String label;
 
             Type(String label) {
                 this.label = label;
@@ -245,7 +248,7 @@ public class Profile {
                     case DEFAULT:
                         return true;
                     case PREVIEW:
-                        return profile.equals(ProfileName.PREVIEW) ? true : false;
+                        return profile.equals(ProfileName.PREVIEW);
                     default:
                         return false;
                 }
@@ -265,12 +268,12 @@ public class Profile {
     }
 
     private void logUnsupportedFeatures() {
-        logUnsuportedFeatures(Feature.Type.PREVIEW, getPreviewFeatures(), Logger.Level.INFO);
-        logUnsuportedFeatures(Feature.Type.EXPERIMENTAL, getExperimentalFeatures(), Logger.Level.WARN);
-        logUnsuportedFeatures(Feature.Type.DEPRECATED, getDeprecatedFeatures(), Logger.Level.WARN);
+        logUnsupportedFeatures(Feature.Type.PREVIEW, getPreviewFeatures(), Logger.Level.INFO);
+        logUnsupportedFeatures(Feature.Type.EXPERIMENTAL, getExperimentalFeatures(), Logger.Level.WARN);
+        logUnsupportedFeatures(Feature.Type.DEPRECATED, getDeprecatedFeatures(), Logger.Level.WARN);
     }
 
-    private void logUnsuportedFeatures(Feature.Type type, Set<Feature> checkedFeatures, Logger.Level level) {
+    private void logUnsupportedFeatures(Feature.Type type, Set<Feature> checkedFeatures, Logger.Level level) {
         Set<Feature.Type> checkedFeatureTypes = checkedFeatures.stream()
                 .map(Feature::getType)
                 .collect(Collectors.toSet());

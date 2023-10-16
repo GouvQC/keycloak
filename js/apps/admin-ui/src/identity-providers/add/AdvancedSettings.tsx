@@ -1,29 +1,34 @@
+import type AuthenticationFlowRepresentation from "@keycloak/keycloak-admin-client/lib/defs/authenticationFlowRepresentation";
+import type IdentityProviderRepresentation from "@keycloak/keycloak-admin-client/lib/defs/identityProviderRepresentation";
 import {
   FormGroup,
   Select,
   SelectOption,
   SelectVariant,
+  Switch,
+  ValidatedOptions,
 } from "@patternfly/react-core";
 import { useState } from "react";
-import { Controller, useFormContext } from "react-hook-form";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-
-import type AuthenticationFlowRepresentation from "@keycloak/keycloak-admin-client/lib/defs/authenticationFlowRepresentation";
 import { HelpItem } from "ui-shared";
-import { useAdminClient, useFetch } from "../../context/auth/AdminClient";
+
+import { adminClient } from "../../admin-client";
+import { useFetch } from "../../utils/useFetch";
 import type { FieldProps } from "../component/FormGroupField";
+import { FormGroupField } from "../component/FormGroupField";
 import { SwitchField } from "../component/SwitchField";
 import { TextField } from "../component/TextField";
+import { KeycloakTextInput } from "../../components/keycloak-text-input/KeycloakTextInput";
 
 const LoginFlow = ({
   field,
   label,
   defaultValue,
 }: FieldProps & { defaultValue: string }) => {
-  const { t } = useTranslation("identity-providers");
+  const { t } = useTranslation();
   const { control } = useFormContext();
 
-  const { adminClient } = useAdminClient();
   const [flows, setFlows] = useState<AuthenticationFlowRepresentation[]>();
   const [open, setOpen] = useState(false);
 
@@ -31,18 +36,13 @@ const LoginFlow = ({
     () => adminClient.authenticationManagement.getFlows(),
     (flows) =>
       setFlows(flows.filter((flow) => flow.providerId === "basic-flow")),
-    []
+    [],
   );
 
   return (
     <FormGroup
       label={t(label)}
-      labelIcon={
-        <HelpItem
-          helpText={t(`identity-providers-help:${label}`)}
-          fieldLabelId={`identity-providers:${label}`}
-        />
-      }
+      labelIcon={<HelpItem helpText={t(`${label}Help`)} fieldLabelId={label} />}
       fieldId={label}
     >
       <Controller
@@ -58,7 +58,7 @@ const LoginFlow = ({
               field.onChange(value as string);
               setOpen(false);
             }}
-            selections={field.value || t("common:none")}
+            selections={field.value || t("none")}
             variant={SelectVariant.single}
             aria-label={t(label)}
             isOpen={open}
@@ -67,7 +67,7 @@ const LoginFlow = ({
               ...(defaultValue === ""
                 ? [
                     <SelectOption key="empty" value="">
-                      {t("common:none")}
+                      {t("none")}
                     </SelectOption>,
                   ]
                 : []),
@@ -92,9 +92,19 @@ const syncModes = ["import", "legacy", "force"];
 type AdvancedSettingsProps = { isOIDC: boolean; isSAML: boolean };
 
 export const AdvancedSettings = ({ isOIDC, isSAML }: AdvancedSettingsProps) => {
-  const { t } = useTranslation("identity-providers");
-  const { control } = useFormContext();
+  const { t } = useTranslation();
+  const {
+    control,
+    register,
+    formState: { errors },
+  } = useFormContext<IdentityProviderRepresentation>();
   const [syncModeOpen, setSyncModeOpen] = useState(false);
+  const filteredByClaim = useWatch({
+    control,
+    name: "config.filteredByClaim",
+    defaultValue: "false",
+  });
+  const claimFilterRequired = filteredByClaim === "true";
   return (
     <>
       {!isOIDC && !isSAML && (
@@ -117,6 +127,9 @@ export const AdvancedSettings = ({ isOIDC, isSAML }: AdvancedSettingsProps) => {
           <SwitchField field="config.disableUserInfo" label="disableUserInfo" />
         </>
       )}
+      {isOIDC && (
+        <SwitchField field="config.isAccessTokenJWT" label="isAccessTokenJWT" />
+      )}
       <SwitchField field="trustEmail" label="trustEmail" fieldType="boolean" />
       <SwitchField
         field="linkOnly"
@@ -125,6 +138,88 @@ export const AdvancedSettings = ({ isOIDC, isSAML }: AdvancedSettingsProps) => {
       />
       <SwitchField field="config.hideOnLoginPage" label="hideOnLoginPage" />
 
+      {(!isSAML || isOIDC) && (
+        <FormGroupField label="filteredByClaim">
+          <Controller
+            name="config.filteredByClaim"
+            defaultValue="false"
+            control={control}
+            render={({ field }) => (
+              <Switch
+                id="filteredByClaim"
+                label={t("on")}
+                labelOff={t("off")}
+                isChecked={field.value === "true"}
+                onChange={(value) => {
+                  field.onChange(value.toString());
+                }}
+              />
+            )}
+          />
+        </FormGroupField>
+      )}
+      {(!isSAML || isOIDC) && claimFilterRequired && (
+        <>
+          <FormGroup
+            label={t("claimFilterName")}
+            labelIcon={
+              <HelpItem
+                helpText={t("claimFilterNameHelp")}
+                fieldLabelId="claimFilterName"
+              />
+            }
+            fieldId="kc-claim-filter-name"
+            isRequired
+            validated={
+              errors.config?.claimFilterName
+                ? ValidatedOptions.error
+                : ValidatedOptions.default
+            }
+            helperTextInvalid={t("required")}
+          >
+            <KeycloakTextInput
+              isRequired
+              id="kc-claim-filter-name"
+              data-testid="claimFilterName"
+              validated={
+                errors.config?.claimFilterName
+                  ? ValidatedOptions.error
+                  : ValidatedOptions.default
+              }
+              {...register("config.claimFilterName", { required: true })}
+            />
+          </FormGroup>
+          <FormGroup
+            label={t("claimFilterValue")}
+            labelIcon={
+              <HelpItem
+                helpText={t("claimFilterValueHelp")}
+                fieldLabelId="claimFilterName"
+              />
+            }
+            fieldId="kc-claim-filter-value"
+            isRequired
+            validated={
+              errors.config?.claimFilterValue
+                ? ValidatedOptions.error
+                : ValidatedOptions.default
+            }
+            helperTextInvalid={t("required")}
+          >
+            <KeycloakTextInput
+              isRequired
+              id="kc-claim-filter-value"
+              data-testid="claimFilterValue"
+              validated={
+                errors.config?.claimFilterValue
+                  ? ValidatedOptions.error
+                  : ValidatedOptions.default
+              }
+              {...register("config.claimFilterValue", { required: true })}
+            />
+          </FormGroup>
+        </>
+      )}
       <LoginFlow
         field="firstBrokerLoginFlowAlias"
         label="firstBrokerLoginFlowAlias"
@@ -140,10 +235,7 @@ export const AdvancedSettings = ({ isOIDC, isSAML }: AdvancedSettingsProps) => {
         className="pf-u-pb-3xl"
         label={t("syncMode")}
         labelIcon={
-          <HelpItem
-            helpText={t("identity-providers-help:syncMode")}
-            fieldLabelId="identity-providers:syncMode"
-          />
+          <HelpItem helpText={t("syncModeHelp")} fieldLabelId="syncMode" />
         }
         fieldId="syncMode"
       >

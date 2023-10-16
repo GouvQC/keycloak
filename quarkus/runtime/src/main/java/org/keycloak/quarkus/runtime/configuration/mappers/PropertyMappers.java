@@ -29,6 +29,7 @@ public final class PropertyMappers {
         MAPPERS.addAll(HostnamePropertyMappers.getHostnamePropertyMappers());
         MAPPERS.addAll(HttpPropertyMappers.getHttpPropertyMappers());
         MAPPERS.addAll(HealthPropertyMappers.getHealthPropertyMappers());
+        MAPPERS.addAll(ConfigKeystorePropertyMappers.getConfigKeystorePropertyMappers());
         MAPPERS.addAll(MetricsPropertyMappers.getMetricsPropertyMappers());
         MAPPERS.addAll(ProxyPropertyMappers.getProxyPropertyMappers());
         MAPPERS.addAll(VaultPropertyMappers.getVaultPropertyMappers());
@@ -39,6 +40,7 @@ public final class PropertyMappers {
         MAPPERS.addAll(ClassLoaderPropertyMappers.getMappers());
         MAPPERS.addAll(SecurityPropertyMappers.getMappers());
         MAPPERS.addAll(ExportPropertyMappers.getMappers());
+        MAPPERS.addAll(ImportPropertyMappers.getMappers());
     }
 
     public static ConfigValue getValue(ConfigSourceInterceptorContext context, String name) {

@@ -2,6 +2,17 @@
 [[_spring_security_adapter]]
 ==== Spring Security adapter
 
+[WARNING]
+====
+This adapter is deprecated and will be removed in a future release of Keycloak. No further enhancements or new features
+will be added to this adapter.
+
+We recommend that you leverage the OAuth2/OpenID Connect support from Spring Security.
+
+For more details about how to integrate {project_name} with Spring Boot applications, consider looking at the
+{quickstartRepo_link}[Keycloak Quickstart GitHub Repository].
+====
+
 To secure an application with Spring Security and Keycloak, add this adapter as a dependency to your project.
 You then have to provide some extra beans in your Spring Security configuration file and add the Keycloak security filter to your pipeline.
 
@@ -194,8 +205,32 @@ Spring Security, when using role-based authentication, requires that role names 
 For example, an administrator role must be declared in Keycloak as `ROLE_ADMIN` or similar, not simply `ADMIN`.
 
 The class `org.keycloak.adapters.springsecurity.authentication.KeycloakAuthenticationProvider`            supports an optional `org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper`            which can be used to map roles coming from Keycloak to roles recognized by Spring Security.
-Use, for example, `org.springframework.security.core.authority.mapping.SimpleAuthorityMapper` to insert the `ROLE_` prefix and convert the role name to upper case.
-The class is part of Spring Security Core module.
+Use, for example, `org.springframework.security.core.authority.mapping.SimpleAuthorityMapper`, which allows for case conversion and the addition of a prefix (which defaults to `ROLE_`).
+The following code will convert the role names to upper case and, by default, add the `ROLE_` prefix to them:
+
+[source,java]
+----
+@KeycloakConfiguration
+public class SecurityConfig extends KeycloakWebSecurityConfigurerAdapter {
+
+    @Autowired
+    public void configureGlobal(AuthenticationManagerBuilder auth) {
+        auth.authenticationProvider(getKeycloakAuthenticationProvider());
+    }
+
+    private KeycloakAuthenticationProvider getKeycloakAuthenticationProvider() {
+        KeycloakAuthenticationProvider authenticationProvider = keycloakAuthenticationProvider();
+        SimpleAuthorityMapper mapper = new SimpleAuthorityMapper();
+        mapper.setConvertToUpperCase(true);
+        authenticationProvider.setGrantedAuthoritiesMapper(mapper);
+
+        return authenticationProvider;
+    }
+
+    ...
+}
+
+----
 
 ===== Client to Client Support
 

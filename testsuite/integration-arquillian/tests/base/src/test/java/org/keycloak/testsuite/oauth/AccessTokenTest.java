@@ -40,7 +40,7 @@ import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.common.enums.SslRequired;
 import org.keycloak.common.util.Base64Url;
 import org.keycloak.crypto.Algorithm;
-import org.keycloak.crypto.ECDSASignatureProvider;
+import org.keycloak.crypto.ECDSAAlgorithm;
 import org.keycloak.crypto.KeyUse;
 import org.keycloak.events.Details;
 import org.keycloak.events.Errors;
@@ -84,13 +84,13 @@ import org.keycloak.util.JsonSerialization;
 import org.keycloak.util.TokenUtil;
 import org.openqa.selenium.By;
 
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.Form;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriBuilder;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.Entity;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.Form;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import java.io.IOException;
 import java.net.URI;
 import java.util.LinkedList;
@@ -191,8 +191,8 @@ public class AccessTokenTest extends AbstractKeycloakTest {
 
         assertEquals(200, response.getStatusCode());
 
-        Assert.assertThat(response.getExpiresIn(), allOf(greaterThanOrEqualTo(250), lessThanOrEqualTo(300)));
-        Assert.assertThat(response.getRefreshExpiresIn(), allOf(greaterThanOrEqualTo(1750), lessThanOrEqualTo(1800)));
+        assertThat(response.getExpiresIn(), allOf(greaterThanOrEqualTo(250), lessThanOrEqualTo(300)));
+        assertThat(response.getRefreshExpiresIn(), allOf(greaterThanOrEqualTo(1750), lessThanOrEqualTo(1800)));
 
         assertEquals("Bearer", response.getTokenType());
 
@@ -221,7 +221,8 @@ public class AccessTokenTest extends AbstractKeycloakTest {
         AccessToken token = oauth.verifyToken(response.getAccessToken());
 
         assertEquals(findUserByUsername(adminClient.realm("test"), "test-user@localhost").getId(), token.getSubject());
-        assertNotEquals("test-user@localhost", token.getSubject());
+        // The following check is not valid anymore since file store does have the same ID, and is redundant due to the previous line
+        // assertNotEquals("test-user@localhost", token.getSubject());
 
         assertEquals(sessionId, token.getSessionState());
 
@@ -1317,12 +1318,12 @@ public class AccessTokenTest extends AbstractKeycloakTest {
     }
 
     private void validateTokenECDSASignature(String expectedAlg) {
-        assertThat(ECDSASignatureProvider.ECDSA.values(), hasItemInArray(ECDSASignatureProvider.ECDSA.valueOf(expectedAlg)));
+        assertThat(ECDSAAlgorithm.values(), hasItemInArray(ECDSAAlgorithm.valueOf(expectedAlg)));
 
         try {
             TokenSignatureUtil.changeRealmTokenSignatureProvider(adminClient, expectedAlg);
             TokenSignatureUtil.changeClientAccessTokenSignatureProvider(ApiUtil.findClientByClientId(adminClient.realm("test"), "test-app"), expectedAlg);
-            validateTokenSignatureLength(ECDSASignatureProvider.ECDSA.valueOf(expectedAlg).getSignatureLength());
+            validateTokenSignatureLength(ECDSAAlgorithm.getSignatureLength(expectedAlg));
         } finally {
             TokenSignatureUtil.changeRealmTokenSignatureProvider(adminClient, Algorithm.RS256);
             TokenSignatureUtil.changeClientAccessTokenSignatureProvider(ApiUtil.findClientByClientId(adminClient.realm("test"), "test-app"), Algorithm.RS256);
@@ -1389,7 +1390,8 @@ public class AccessTokenTest extends AbstractKeycloakTest {
         AccessToken token = oauth.verifyToken(response.getAccessToken());
 
         assertEquals(findUserByUsername(adminClient.realm("test"), "test-user@localhost").getId(), token.getSubject());
-        assertNotEquals("test-user@localhost", token.getSubject());
+        // The following check is not valid anymore since file store does have the same ID, and is redundant due to the previous line
+        // assertNotEquals("test-user@localhost", token.getSubject());
 
         assertEquals(sessionId, token.getSessionState());
 

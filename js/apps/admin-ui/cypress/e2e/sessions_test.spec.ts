@@ -73,8 +73,35 @@ describe("Sessions test", () => {
       commonPage
         .masthead()
         .checkNotificationMessage(
-          "No push sent. No admin URI configured or no registered cluster nodes available"
+          "No push sent. No admin URI configured or no registered cluster nodes available",
         );
+    });
+  });
+
+  describe("Accessibility tests for sessions", () => {
+    beforeEach(() => {
+      loginPage.logIn();
+      keycloakBefore();
+      sidebarPage.goToSessions();
+      cy.injectAxe();
+    });
+
+    it("Check a11y violations on load/ sessions", () => {
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on revocation dialog", () => {
+      cy.findByTestId("action-dropdown").click();
+      cy.findByTestId("revocation").click();
+      cy.checkA11y();
+      cy.findByTestId("cancel").click();
+    });
+
+    it("Check a11y violations on sign out all active sessions dialog", () => {
+      cy.findByTestId("action-dropdown").click();
+      cy.findByTestId("logout-all").click();
+      cy.checkA11y();
+      cy.findByTestId("cancel").click();
     });
   });
 });

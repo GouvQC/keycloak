@@ -1,3 +1,4 @@
+import type RealmRepresentation from "@keycloak/keycloak-admin-client/lib/defs/realmRepresentation";
 import {
   ActionGroup,
   AlertVariant,
@@ -22,15 +23,14 @@ import {
   useFormContext,
 } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { HelpItem, useHelp } from "ui-shared";
 
-import type RealmRepresentation from "@keycloak/keycloak-admin-client/lib/defs/realmRepresentation";
+import { adminClient } from "../../admin-client";
 import { useAlerts } from "../../components/alert/Alerts";
-import { FormAccess } from "../../components/form-access/FormAccess";
-import { useHelp, HelpItem } from "ui-shared";
+import { FormAccess } from "../../components/form/FormAccess";
 import { KeycloakTextInput } from "../../components/keycloak-text-input/KeycloakTextInput";
 import { MultiLineInput } from "../../components/multi-line-input/MultiLineInput";
 import { TimeSelector } from "../../components/time-selector/TimeSelector";
-import { useAdminClient } from "../../context/auth/AdminClient";
 import { useRealm } from "../../context/realm-context/RealmContext";
 import { convertFormValuesToObject, convertToFormValues } from "../../util";
 
@@ -82,7 +82,7 @@ const WebauthnSelect = ({
   labelPrefix,
   isMultiSelect = false,
 }: WeauthnSelectProps) => {
-  const { t } = useTranslation("authentication");
+  const { t } = useTranslation();
   const { control } = useFormContext();
 
   const [open, toggle] = useState(false);
@@ -91,7 +91,7 @@ const WebauthnSelect = ({
       label={t(label)}
       labelIcon={
         <HelpItem
-          helpText={t(`authentication-help:${label}`)}
+          helpText={t(`${label}Help`)}
           fieldLabelId={`authentication:${label}`}
         />
       }
@@ -108,7 +108,7 @@ const WebauthnSelect = ({
             onSelect={(_, selectedValue) => {
               if (isMultiSelect) {
                 const changedValue = field.value.find(
-                  (item: string) => item === selectedValue
+                  (item: string) => item === selectedValue,
                 )
                   ? field.value.filter((item: string) => item !== selectedValue)
                   : [...field.value, selectedValue];
@@ -157,8 +157,7 @@ export const WebauthnPolicy = ({
   realmUpdated,
   isPasswordLess = false,
 }: WebauthnPolicyProps) => {
-  const { t } = useTranslation("authentication");
-  const { adminClient } = useAdminClient();
+  const { t } = useTranslation();
   const { addAlert, addError } = useAlerts();
   const { realm: realmName } = useRealm();
   const { enabled } = useHelp();
@@ -188,7 +187,7 @@ export const WebauthnPolicy = ({
       setupForm(submittedRealm);
       addAlert(t("webAuthnUpdateSuccess"), AlertVariant.success);
     } catch (error) {
-      addError("authentication:webAuthnUpdateError", error);
+      addError("webAuthnUpdateError", error);
     }
   };
 
@@ -198,7 +197,7 @@ export const WebauthnPolicy = ({
         <Popover bodyContent={t(`authentication-help:${namePrefix}FormHelp`)}>
           <TextContent className="keycloak__section_intro__help">
             <Text>
-              <QuestionCircleIcon /> {t("authentication-help:webauthnIntro")}
+              <QuestionCircleIcon /> {t("webauthnIntro")}
             </Text>
           </TextContent>
         </Popover>
@@ -213,13 +212,13 @@ export const WebauthnPolicy = ({
         <FormGroup
           label={t("webAuthnPolicyRpEntityName")}
           fieldId="webAuthnPolicyRpEntityName"
-          helperTextInvalid={t("common:required")}
+          helperTextInvalid={t("required")}
           validated={errors.webAuthnPolicyRpEntityName ? "error" : "default"}
           isRequired
           labelIcon={
             <HelpItem
-              helpText={t("authentication-help:webAuthnPolicyRpEntityName")}
-              fieldLabelId="authentication:webAuthnPolicyRpEntityName"
+              helpText={t("webAuthnPolicyRpEntityNameHelp")}
+              fieldLabelId="webAuthnPolicyRpEntityName"
             />
           }
         >
@@ -241,8 +240,8 @@ export const WebauthnPolicy = ({
             label={t("webAuthnPolicyRpId")}
             labelIcon={
               <HelpItem
-                helpText={t("authentication-help:webAuthnPolicyRpId")}
-                fieldLabelId="authentication:webAuthnPolicyRpId"
+                helpText={t("webAuthnPolicyRpIdHelp")}
+                fieldLabelId="webAuthnPolicyRpId"
               />
             }
             fieldId="webAuthnPolicyRpId"
@@ -284,8 +283,8 @@ export const WebauthnPolicy = ({
             validated={errors.webAuthnPolicyCreateTimeout ? "error" : "default"}
             labelIcon={
               <HelpItem
-                helpText={t("authentication-help:webAuthnPolicyCreateTimeout")}
-                fieldLabelId="authentication:webAuthnPolicyCreateTimeout"
+                helpText={t("webAuthnPolicyCreateTimeoutHelp")}
+                fieldLabelId="webAuthnPolicyCreateTimeout"
               />
             }
           >
@@ -313,10 +312,8 @@ export const WebauthnPolicy = ({
             fieldId="webAuthnPolicyAvoidSameAuthenticatorRegister"
             labelIcon={
               <HelpItem
-                helpText={t(
-                  "authentication-help:webAuthnPolicyAvoidSameAuthenticatorRegister"
-                )}
-                fieldLabelId="authentication:webAuthnPolicyAvoidSameAuthenticatorRegister"
+                helpText={t("webAuthnPolicyAvoidSameAuthenticatorRegisterHelp")}
+                fieldLabelId="webAuthnPolicyAvoidSameAuthenticatorRegister"
               />
             }
           >
@@ -327,8 +324,8 @@ export const WebauthnPolicy = ({
               render={({ field }) => (
                 <Switch
                   id="webAuthnPolicyAvoidSameAuthenticatorRegister"
-                  label={t("common:on")}
-                  labelOff={t("common:off")}
+                  label={t("on")}
+                  labelOff={t("off")}
                   isChecked={field.value}
                   onChange={field.onChange}
                   aria-label={t("webAuthnPolicyAvoidSameAuthenticatorRegister")}
@@ -341,17 +338,31 @@ export const WebauthnPolicy = ({
             fieldId="webAuthnPolicyAcceptableAaguids"
             labelIcon={
               <HelpItem
-                helpText={t(
-                  "authentication-help:webAuthnPolicyAcceptableAaguids"
-                )}
-                fieldLabelId="authentication:webAuthnPolicyAcceptableAaguids"
+                helpText={t("webAuthnPolicyAcceptableAaguidsHelp")}
+                fieldLabelId="webAuthnPolicyAcceptableAaguids"
               />
             }
           >
             <MultiLineInput
               name={`${namePrefix}AcceptableAaguids`}
               aria-label={t("webAuthnPolicyAcceptableAaguids")}
-              addButtonLabel="authentication:addAaguids"
+              addButtonLabel="addAaguids"
+            />
+          </FormGroup>
+          <FormGroup
+            label={t("webAuthnPolicyExtraOrigins")}
+            fieldId="webAuthnPolicyExtraOrigins"
+            labelIcon={
+              <HelpItem
+                helpText={t("webAuthnPolicyExtraOriginsHelp")}
+                fieldLabelId="webAuthnPolicyExtraOrigins"
+              />
+            }
+          >
+            <MultiLineInput
+              name={`${namePrefix}ExtraOrigins`}
+              aria-label={t("webAuthnPolicyExtraOrigins")}
+              addButtonLabel="addOrigins"
             />
           </FormGroup>
         </FormProvider>
@@ -363,14 +374,14 @@ export const WebauthnPolicy = ({
             type="submit"
             isDisabled={!isDirty}
           >
-            {t("common:save")}
+            {t("save")}
           </Button>
           <Button
             data-testid="reload"
             variant={ButtonVariant.link}
             onClick={() => setupForm(realm)}
           >
-            {t("common:reload")}
+            {t("reload")}
           </Button>
         </ActionGroup>
       </FormAccess>

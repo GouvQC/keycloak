@@ -1,17 +1,26 @@
-import { ActionGroup, Button, Form } from "@patternfly/react-core";
+import {
+  ActionGroup,
+  Alert,
+  Button,
+  ExpandableSection,
+  Form,
+  Spinner,
+} from "@patternfly/react-core";
+import { useKeycloak } from "keycloak-masthead";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useAlerts } from "ui-shared";
-
 import { getPersonalInfo, savePersonalInfo } from "../api/methods";
 import {
   UserProfileMetadata,
   UserRepresentation,
 } from "../api/representations";
 import { Page } from "../components/page/Page";
+import { environment } from "../environment";
+import { TFuncKey } from "../i18n";
 import { usePromise } from "../utils/usePromise";
-import { FormField } from "./FormField";
+import { UserProfileFields } from "./UserProfileFields";
 
 type FieldError = {
   field: string;
@@ -29,6 +38,7 @@ export const fieldName = (name: string) =>
 
 const PersonalInfo = () => {
   const { t } = useTranslation();
+  const keycloak = useKeycloak();
   const [userProfileMetadata, setUserProfileMetadata] =
     useState<UserProfileMetadata>();
   const form = useForm<UserRepresentation>({ mode: "onChange" });
@@ -40,12 +50,13 @@ const PersonalInfo = () => {
     (personalInfo) => {
       setUserProfileMetadata(personalInfo.userProfileMetadata);
       reset(personalInfo);
-    }
+    },
   );
 
   const onSubmit = async (user: UserRepresentation) => {
     try {
       await savePersonalInfo(user);
+      keycloak?.updateToken();
       addAlert(t("accountUpdatedMessage"));
     } catch (error) {
       addError(t("accountUpdatedError").toString());
@@ -53,32 +64,72 @@ const PersonalInfo = () => {
       (error as FieldError[]).forEach((e) => {
         const params = Object.assign(
           {},
-          e.params.map((p) => (isBundleKey(p) ? unWrap(p) : p))
+          e.params.map((p) => t((isBundleKey(p) ? unWrap(p) : p) as TFuncKey)),
         );
         setError(fieldName(e.field) as keyof UserRepresentation, {
-          message: t(e.errorMessage, { ...params, defaultValue: e.field }),
+          message: t(e.errorMessage as TFuncKey, {
+            ...params,
+            defaultValue: e.field,
+          }),
           type: "server",
         });
       });
     }
   };
 
+  if (!userProfileMetadata) {
+    return <Spinner />;
+  }
+
   return (
     <Page title={t("personalInfo")} description={t("personalInfoDescription")}>
       <Form isHorizontal onSubmit={handleSubmit(onSubmit)}>
         <FormProvider {...form}>
-          {(userProfileMetadata?.attributes || []).map((attribute) => (
-            <FormField key={attribute.name} attribute={attribute} />
-          ))}
+          <UserProfileFields metaData={userProfileMetadata} />
         </FormProvider>
         <ActionGroup>
-          <Button type="submit" id="save-btn" variant="primary">
-            {t("doSave")}
+          <Button
+            data-testid="save"
+            type="submit"
+            id="save-btn"
+            variant="primary"
+          >
+            {t("save")}
           </Button>
-          <Button id="cancel-btn" variant="link" onClick={() => reset()}>
-            {t("doCancel")}
+          <Button
+            data-testid="cancel"
+            id="cancel-btn"
+            variant="link"
+            onClick={() => reset()}
+          >
+            {t("cancel")}
           </Button>
         </ActionGroup>
+        {environment.features.deleteAccountAllowed && (
+          <ExpandableSection toggleText={t("deleteAccount")}>
+            <Alert
+              isInline
+              title={t("deleteAccount")}
+              variant="danger"
+              actionLinks={
+                <Button
+                  id="delete-account-btn"
+                  variant="danger"
+                  onClick={() =>
+                    keycloak?.keycloak.login({
+                      action: "delete_account",
+                    })
+                  }
+                  className="delete-button"
+                >
+                  {t("delete")}
+                </Button>
+              }
+            >
+              {t("deleteAccountWarning")}
+            </Alert>
+          </ExpandableSection>
+        )}
       </Form>
     </Page>
   );

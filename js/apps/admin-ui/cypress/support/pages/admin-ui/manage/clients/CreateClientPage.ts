@@ -3,9 +3,9 @@ import CommonPage from "../../../CommonPage";
 export default class CreateClientPage extends CommonPage {
   private clientTypeDrpDwn = ".pf-c-select__toggle";
   private clientTypeList = ".pf-c-select__toggle + ul";
-  private clientIdInput = "#kc-client-id";
-  private clientIdError = "#kc-client-id + div";
-  private clientNameInput = "#kc-name";
+  private clientIdInput = "#clientId";
+  private clientIdError = "#clientId + div";
+  private clientNameInput = "#name";
   private clientDescriptionInput = "#kc-description";
   private alwaysDisplayInUISwitch =
     '[for="kc-always-display-in-ui-switch"] .pf-c-switch__toggle';
@@ -73,7 +73,7 @@ export default class CreateClientPage extends CommonPage {
     name = "",
     description = "",
     alwaysDisplay?: boolean,
-    frontchannelLogout?: boolean
+    frontchannelLogout?: boolean,
   ) {
     cy.get(this.clientIdInput).clear();
 
@@ -115,7 +115,7 @@ export default class CreateClientPage extends CommonPage {
 
   checkGeneralSettingsStepActive() {
     cy.get(".pf-c-wizard__nav-link")
-      .contains("General Settings")
+      .contains("General settings")
       .should("have.class", "pf-m-current");
 
     return this;

@@ -1,11 +1,10 @@
+import type IdentityProviderRepresentation from "@keycloak/keycloak-admin-client/lib/defs/identityProviderRepresentation";
 import { FormGroup, Title } from "@patternfly/react-core";
 import { useFormContext } from "react-hook-form";
-
-import type IdentityProviderRepresentation from "@keycloak/keycloak-admin-client/lib/defs/identityProviderRepresentation";
 import { useTranslation } from "react-i18next";
 import { HelpItem } from "ui-shared";
-import { useAdminClient } from "../../context/auth/AdminClient";
 
+import { adminClient } from "../../admin-client";
 import { FileUploadForm } from "../../components/json-file-upload/FileUploadForm";
 import { KeycloakTextInput } from "../../components/keycloak-text-input/KeycloakTextInput";
 import { useRealm } from "../../context/realm-context/RealmContext";
@@ -20,10 +19,9 @@ type FormFields = IdentityProviderRepresentation & {
 };
 
 export const SamlConnectSettings = () => {
-  const { t } = useTranslation("identity-providers");
+  const { t } = useTranslation();
   const id = "saml";
 
-  const { adminClient } = useAdminClient();
   const { realm } = useRealm();
   const {
     setValue,
@@ -35,7 +33,7 @@ export const SamlConnectSettings = () => {
 
   const setupForm = (result: IdentityProviderRepresentation) => {
     Object.entries(result).map(([key, value]) =>
-      setValue(`config.${key}`, value)
+      setValue(`config.${key}`, value),
     );
   };
 
@@ -51,13 +49,13 @@ export const SamlConnectSettings = () => {
     try {
       const response = await fetch(
         `${addTrailingSlash(
-          adminClient.baseUrl
+          adminClient.baseUrl,
         )}admin/realms/${realm}/identity-provider/import-config`,
         {
           method: "POST",
           body: formData,
           headers: getAuthorizationHeaders(await adminClient.getAccessToken()),
-        }
+        },
       );
       if (response.ok) {
         const result = await response.json();
@@ -78,7 +76,7 @@ export const SamlConnectSettings = () => {
 
   return (
     <>
-      <Title headingLevel="h4" size="xl" className="kc-form-panel__title">
+      <Title headingLevel="h2" size="xl" className="kc-form-panel__title">
         {t("samlSettings")}
       </Title>
 
@@ -87,12 +85,12 @@ export const SamlConnectSettings = () => {
         fieldId="kc-service-provider-entity-id"
         labelIcon={
           <HelpItem
-            helpText={t("identity-providers-help:serviceProviderEntityId")}
-            fieldLabelId="identity-providers:serviceProviderEntityId"
+            helpText={t("serviceProviderEntityIdHelp")}
+            fieldLabelId="serviceProviderEntityId"
           />
         }
         isRequired
-        helperTextInvalid={t("common:required")}
+        helperTextInvalid={t("required")}
         validated={errors.config?.entityId ? "error" : "default"}
       >
         <KeycloakTextInput
@@ -112,8 +110,8 @@ export const SamlConnectSettings = () => {
             fieldId="kc-import-config"
             labelIcon={
               <HelpItem
-                helpText={t("identity-providers-help:importConfig")}
-                fieldLabelId="identity-providers:importConfig"
+                helpText={t("importConfigHelp")}
+                fieldLabelId="importConfig"
               />
             }
             validated={errors.discoveryError ? "error" : "default"}

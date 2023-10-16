@@ -10,23 +10,25 @@ import {
   ValidatedOptions,
 } from "@patternfly/react-core";
 import { useEffect, useState } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { HelpItem, TextControl } from "ui-shared";
 
 import { getProtocolName } from "../../clients/utils";
+import { DefaultSwitchControl } from "../../components/SwitchControl";
 import {
-  allClientScopeTypes,
   ClientScopeDefaultOptionalType,
+  allClientScopeTypes,
   clientScopeTypesSelectOptions,
 } from "../../components/client-scope/ClientScopeTypes";
-import { FormAccess } from "../../components/form-access/FormAccess";
-import { HelpItem } from "ui-shared";
+import { FormAccess } from "../../components/form/FormAccess";
 import { KeycloakTextArea } from "../../components/keycloak-text-area/KeycloakTextArea";
 import { KeycloakTextInput } from "../../components/keycloak-text-input/KeycloakTextInput";
 import { useRealm } from "../../context/realm-context/RealmContext";
 import { useLoginProviders } from "../../context/server-info/ServerInfoProvider";
 import { convertAttributeNameToForm, convertToFormValues } from "../../util";
+import useIsFeatureEnabled, { Feature } from "../../utils/useIsFeatureEnabled";
 import { toClientScopes } from "../routes/ClientScopes";
 
 type ScopeFormProps = {
@@ -35,18 +37,20 @@ type ScopeFormProps = {
 };
 
 export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
-  const { t } = useTranslation("client-scopes");
-  const { t: tc } = useTranslation("clients");
+  const { t } = useTranslation();
+  const form = useForm<ClientScopeDefaultOptionalType>({ mode: "onChange" });
   const {
     register,
     control,
     handleSubmit,
     setValue,
     formState: { errors, isDirty, isValid },
-  } = useForm<ClientScopeDefaultOptionalType>({ mode: "onChange" });
+  } = form;
   const { realm } = useRealm();
 
   const providers = useLoginProviders();
+  const isFeatureEnabled = useIsFeatureEnabled();
+  const isDynamicScopesEnabled = isFeatureEnabled(Feature.DynamicScopes);
   const [open, isOpen] = useState(false);
   const [openType, setOpenType] = useState(false);
 
@@ -56,6 +60,22 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
     defaultValue:
       clientScope?.attributes?.["display.on.consent.screen"] ?? "true",
   });
+
+  const dynamicScope = useWatch({
+    control,
+    name: convertAttributeNameToForm<ClientScopeDefaultOptionalType>(
+      "attributes.is.dynamic.scope",
+    ),
+    defaultValue: "false",
+  });
+
+  const setDynamicRegex = (value: string, append: boolean) =>
+    setValue(
+      convertAttributeNameToForm<ClientScopeDefaultOptionalType>(
+        "attributes.dynamic.scope.regexp",
+      ),
+      append ? `${value}:*` : value,
+    );
 
   useEffect(() => {
     convertToFormValues(clientScope ?? {}, setValue);
@@ -68,18 +88,15 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
       isHorizontal
     >
       <FormGroup
-        label={t("common:name")}
+        label={t("name")}
         labelIcon={
-          <HelpItem
-            helpText={t("client-scopes-help:name")}
-            fieldLabelId="name"
-          />
+          <HelpItem helpText={t("scopeNameHelp")} fieldLabelId="name" />
         }
         fieldId="kc-name"
         validated={
           errors.name ? ValidatedOptions.error : ValidatedOptions.default
         }
-        helperTextInvalid={t("common:required")}
+        helperTextInvalid={t("required")}
         isRequired
       >
         <KeycloakTextInput
@@ -88,14 +105,46 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
             errors.name ? ValidatedOptions.error : ValidatedOptions.default
           }
           isRequired
-          {...register("name", { required: true })}
+          {...register("name", {
+            required: true,
+            onChange: (e) => {
+              if (isDynamicScopesEnabled) {
+                setDynamicRegex(e.target.value, true);
+              }
+            },
+          })}
         />
       </FormGroup>
+      {isDynamicScopesEnabled && (
+        <FormProvider {...form}>
+          <DefaultSwitchControl
+            name={convertAttributeNameToForm<ClientScopeDefaultOptionalType>(
+              "attributes.is.dynamic.scope",
+            )}
+            label={t("dynamicScope")}
+            labelIcon={t("dynamicScopeHelp")}
+            onChange={(value) => {
+              setDynamicRegex(value ? form.getValues("name") || "" : "", value);
+            }}
+            stringify
+          />
+          {dynamicScope === "true" && (
+            <TextControl
+              name={convertAttributeNameToForm<ClientScopeDefaultOptionalType>(
+                "attributes.dynamic.scope.regexp",
+              )}
+              label={t("dynamicScopeFormat")}
+              labelIcon={t("dynamicScopeFormatHelp")}
+              isDisabled
+            />
+          )}
+        </FormProvider>
+      )}
       <FormGroup
-        label={t("common:description")}
+        label={t("description")}
         labelIcon={
           <HelpItem
-            helpText={t("client-scopes-help:description")}
+            helpText={t("scopeDescriptionHelp")}
             fieldLabelId="description"
           />
         }
@@ -103,7 +152,7 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
         validated={
           errors.description ? ValidatedOptions.error : ValidatedOptions.default
         }
-        helperTextInvalid={t("common:maxLength", { length: 255 })}
+        helperTextInvalid={t("maxLength", { length: 255 })}
       >
         <KeycloakTextInput
           id="kc-description"
@@ -120,10 +169,7 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
       <FormGroup
         label={t("type")}
         labelIcon={
-          <HelpItem
-            helpText={t("client-scopes-help:type")}
-            fieldLabelId="client-scopes:type"
-          />
+          <HelpItem helpText={t("scopeTypeHelp")} fieldLabelId="type" />
         }
         fieldId="kc-type"
       >
@@ -152,10 +198,7 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
         <FormGroup
           label={t("protocol")}
           labelIcon={
-            <HelpItem
-              helpText={t("client-scopes-help:protocol")}
-              fieldLabelId="client-scopes:protocol"
-            />
+            <HelpItem helpText={t("protocolHelp")} fieldLabelId="protocol" />
           }
           fieldId="kc-protocol"
         >
@@ -182,7 +225,7 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
                     value={option}
                     data-testid={`option-${option}`}
                   >
-                    {getProtocolName(tc, option)}
+                    {getProtocolName(t, option)}
                   </SelectOption>
                 ))}
               </Select>
@@ -195,23 +238,23 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
         label={t("displayOnConsentScreen")}
         labelIcon={
           <HelpItem
-            helpText={t("client-scopes-help:displayOnConsentScreen")}
-            fieldLabelId="client-scopes:displayOnConsentScreen"
+            helpText={t("displayOnConsentScreenHelp")}
+            fieldLabelId="displayOnConsentScreen"
           />
         }
         fieldId="kc-display-on-consent-screen"
       >
         <Controller
           name={convertAttributeNameToForm<ClientScopeDefaultOptionalType>(
-            "attributes.display.on.consent.screen"
+            "attributes.display.on.consent.screen",
           )}
           control={control}
           defaultValue={displayOnConsentScreen}
           render={({ field }) => (
             <Switch
               id="kc-display-on-consent-screen"
-              label={t("common:on")}
-              labelOff={t("common:off")}
+              label={t("on")}
+              labelOff={t("off")}
               isChecked={field.value === "true"}
               onChange={(value) => field.onChange(value.toString())}
             />
@@ -223,8 +266,8 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
           label={t("consentScreenText")}
           labelIcon={
             <HelpItem
-              helpText={t("client-scopes-help:consentScreenText")}
-              fieldLabelId="client-scopes:consentScreenText"
+              helpText={t("consentScreenTextHelp")}
+              fieldLabelId="consentScreenText"
             />
           }
           fieldId="kc-consent-screen-text"
@@ -233,8 +276,8 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
             id="kc-consent-screen-text"
             {...register(
               convertAttributeNameToForm<ClientScopeDefaultOptionalType>(
-                "attributes.consent.screen.text"
-              )
+                "attributes.consent.screen.text",
+              ),
             )}
           />
         </FormGroup>
@@ -244,23 +287,23 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
         label={t("includeInTokenScope")}
         labelIcon={
           <HelpItem
-            helpText={t("client-scopes-help:includeInTokenScope")}
-            fieldLabelId="client-scopes:includeInTokenScope"
+            helpText={t("includeInTokenScopeHelp")}
+            fieldLabelId="includeInTokenScope"
           />
         }
         fieldId="kc-include-in-token-scope"
       >
         <Controller
           name={convertAttributeNameToForm<ClientScopeDefaultOptionalType>(
-            "attributes.include.in.token.scope"
+            "attributes.include.in.token.scope",
           )}
           control={control}
           defaultValue="true"
           render={({ field }) => (
             <Switch
               id="kc-include-in-token-scope"
-              label={t("common:on")}
-              labelOff={t("common:off")}
+              label={t("on")}
+              labelOff={t("off")}
               isChecked={field.value === "true"}
               onChange={(value) => field.onChange(value.toString())}
             />
@@ -270,16 +313,13 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
       <FormGroup
         label={t("guiOrder")}
         labelIcon={
-          <HelpItem
-            helpText={t("client-scopes-help:guiOrder")}
-            fieldLabelId="client-scopes:guiOrder"
-          />
+          <HelpItem helpText={t("guiOrderHelp")} fieldLabelId="guiOrder" />
         }
         fieldId="kc-gui-order"
       >
         <Controller
           name={convertAttributeNameToForm<ClientScopeDefaultOptionalType>(
-            "attributes.gui.order"
+            "attributes.gui.order",
           )}
           defaultValue=""
           control={control}
@@ -300,7 +340,7 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
           type="submit"
           isDisabled={!isDirty || !isValid}
         >
-          {t("common:save")}
+          {t("save")}
         </Button>
         <Button
           variant="link"
@@ -308,7 +348,7 @@ export const ScopeForm = ({ clientScope, save }: ScopeFormProps) => {
             <Link {...props} to={toClientScopes({ realm })}></Link>
           )}
         >
-          {t("common:cancel")}
+          {t("cancel")}
         </Button>
       </ActionGroup>
     </FormAccess>

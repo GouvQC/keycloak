@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import type GroupRepresentation from "@keycloak/keycloak-admin-client/lib/defs/groupRepresentation";
 import {
+  AlertVariant,
+  Button,
   Checkbox,
   Dropdown,
   DropdownItem,
@@ -13,20 +13,26 @@ import {
   TreeView,
   TreeViewDataItem,
 } from "@patternfly/react-core";
+import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
-import type GroupRepresentation from "@keycloak/keycloak-admin-client/lib/defs/groupRepresentation";
-import { useAdminClient, useFetch } from "../../context/auth/AdminClient";
+import { AngleRightIcon } from "@patternfly/react-icons";
+import { unionBy } from "lodash-es";
+import { adminClient } from "../../admin-client";
+import { useAlerts } from "../../components/alert/Alerts";
 import { KeycloakSpinner } from "../../components/keycloak-spinner/KeycloakSpinner";
-import useToggle from "../../utils/useToggle";
-import { DeleteGroup } from "./DeleteGroup";
-import { GroupsModal } from "../GroupsModal";
-import { MoveDialog } from "./MoveDialog";
 import { PaginatingTableToolbar } from "../../components/table-toolbar/PaginatingTableToolbar";
-import { useSubGroups } from "../SubGroupsContext";
+import { useAccess } from "../../context/access/Access";
 import { fetchAdminUI } from "../../context/auth/admin-ui-endpoint";
 import { useRealm } from "../../context/realm-context/RealmContext";
-import { joinPath } from "../../utils/joinPath";
+import { useFetch } from "../../utils/useFetch";
+import useToggle from "../../utils/useToggle";
+import { GroupsModal } from "../GroupsModal";
+import { useSubGroups } from "../SubGroupsContext";
 import { toGroups } from "../routes/Groups";
+import { DeleteGroup } from "./DeleteGroup";
+import { MoveDialog } from "./MoveDialog";
 
 import "./group-tree.css";
 
@@ -39,7 +45,7 @@ const GroupTreeContextMenu = ({
   group,
   refresh,
 }: GroupTreeContextMenuProps) => {
-  const { t } = useTranslation("groups");
+  const { t } = useTranslation();
 
   const [isOpen, toggleOpen] = useToggle();
   const [renameOpen, toggleRenameOpen] = useToggle();
@@ -52,7 +58,7 @@ const GroupTreeContextMenu = ({
       {renameOpen && (
         <GroupsModal
           id={group.id}
-          rename={group.name}
+          rename={group}
           refresh={() => {
             refresh();
           }}
@@ -92,7 +98,7 @@ const GroupTreeContextMenu = ({
           </DropdownItem>,
           <DropdownSeparator key="separator" />,
           <DropdownItem key="delete" onClick={toggleDeleteOpen}>
-            {t("common:delete")}
+            {t("delete")}
           </DropdownItem>,
         ]}
       />
@@ -105,14 +111,17 @@ type GroupTreeProps = {
   canViewDetails: boolean;
 };
 
+const SUBGROUP_COUNT = 50;
+
 export const GroupTree = ({
   refresh: viewRefresh,
   canViewDetails,
 }: GroupTreeProps) => {
-  const { t } = useTranslation("groups");
-  const { adminClient } = useAdminClient();
+  const { t } = useTranslation();
   const { realm } = useRealm();
   const navigate = useNavigate();
+  const { addAlert } = useAlerts();
+  const { hasAccess } = useAccess();
 
   const [data, setData] = useState<TreeViewDataItem[]>();
   const [groups, setGroups] = useState<GroupRepresentation[]>([]);
@@ -121,8 +130,13 @@ export const GroupTree = ({
   const [search, setSearch] = useState("");
   const [max, setMax] = useState(20);
   const [first, setFirst] = useState(0);
+  const prefFirst = useRef(0);
+  const prefMax = useRef(20);
+  const [count, setCount] = useState(0);
   const [exact, setExact] = useState(false);
   const [activeItem, setActiveItem] = useState<TreeViewDataItem>();
+
+  const [firstSub, setFirstSub] = useState(0);
 
   const [key, setKey] = useState(0);
   const refresh = () => {
@@ -132,12 +146,10 @@ export const GroupTree = ({
 
   const mapGroup = (
     group: GroupRepresentation,
-    parents: GroupRepresentation[],
-    refresh: () => void
+    refresh: () => void,
   ): TreeViewDataItem => {
-    const groups = [...parents, group];
     return {
-      id: joinPath(...groups.map((g) => g.id!)),
+      id: group.id,
       name: (
         <Tooltip content={group.name}>
           <span>{group.name}</span>
@@ -145,9 +157,9 @@ export const GroupTree = ({
       ),
       children:
         group.subGroups && group.subGroups.length > 0
-          ? group.subGroups.map((g) => mapGroup(g, groups, refresh))
+          ? group.subGroups.map((g) => mapGroup(g, refresh))
           : undefined,
-      action: canViewDetails && (
+      action: (hasAccess("manage-users") || group.access?.manage) && (
         <GroupTreeContextMenu group={group} refresh={refresh} />
       ),
       defaultExpanded: subGroups.map((g) => g.id).includes(group.id),
@@ -155,37 +167,95 @@ export const GroupTree = ({
   };
 
   useFetch(
-    () =>
-      fetchAdminUI<GroupRepresentation[]>(
-        adminClient,
+    async () => {
+      const groups = await fetchAdminUI<GroupRepresentation[]>(
         "ui-ext/groups",
         Object.assign(
           {
             first: `${first}`,
             max: `${max + 1}`,
             exact: `${exact}`,
+            global: `${search !== ""}`,
           },
-          search === "" ? null : { search }
-        )
-      ),
-    (groups) => {
-      setGroups(groups);
-      setData(groups.map((g) => mapGroup(g, [], refresh)));
+          search === "" ? null : { search },
+        ),
+      );
+      const count = (await adminClient.groups.count({ search, top: true }))
+        .count;
+      let subGroups: GroupRepresentation[] = [];
+      if (activeItem) {
+        subGroups = await fetchAdminUI<GroupRepresentation[]>(
+          "ui-ext/groups/subgroup",
+          {
+            id: activeItem.id!,
+            first: `${firstSub}`,
+            max: `${SUBGROUP_COUNT}`,
+          },
+        );
+      }
+      return { groups, count, subGroups };
     },
-    [key, first, max, search, exact]
+    ({ groups, count, subGroups }) => {
+      const found: TreeViewDataItem[] = [];
+      if (activeItem) findGroup(data || [], activeItem.id!, [], found);
+
+      if (found.length && subGroups.length) {
+        const foundTreeItem = found.pop()!;
+        foundTreeItem.children = [
+          ...(unionBy(foundTreeItem.children || []).splice(0, SUBGROUP_COUNT),
+          subGroups.map((g) => mapGroup(g, refresh), "id")),
+          ...(subGroups.length === SUBGROUP_COUNT
+            ? [
+                {
+                  id: "next",
+                  name: (
+                    <Button
+                      variant="plain"
+                      onClick={() => setFirstSub(firstSub + SUBGROUP_COUNT)}
+                    >
+                      <AngleRightIcon />
+                    </Button>
+                  ),
+                },
+              ]
+            : []),
+        ];
+      }
+      setGroups(groups);
+      if (search || prefFirst.current !== first || prefMax.current !== max) {
+        setData(groups.map((g) => mapGroup(g, refresh)));
+      } else {
+        setData(
+          unionBy(
+            data,
+            groups.map((g) => mapGroup(g, refresh)),
+            "id",
+          ),
+        );
+      }
+      setCount(count);
+      prefFirst.current = first;
+      prefMax.current = max;
+    },
+    [key, first, firstSub, max, search, exact, activeItem],
   );
 
   const findGroup = (
-    groups: GroupRepresentation[],
+    groups: GroupRepresentation[] | TreeViewDataItem[],
     id: string,
-    path: GroupRepresentation[],
-    found: GroupRepresentation[]
+    path: (GroupRepresentation | TreeViewDataItem)[],
+    found: (GroupRepresentation | TreeViewDataItem)[],
   ) => {
     return groups.map((group) => {
       if (found.length > 0) return;
 
-      if (group.subGroups && group.subGroups.length > 0)
+      if ("subGroups" in group && group.subGroups?.length) {
         findGroup(group.subGroups, id, [...path, group], found);
+      }
+
+      if ("children" in group && group.children) {
+        findGroup(group.children, id, [...path, group], found);
+      }
 
       if (group.id === id) {
         found.push(...path, group);
@@ -195,7 +265,7 @@ export const GroupTree = ({
 
   return data ? (
     <PaginatingTableToolbar
-      count={data.length || 0}
+      count={count - first}
       first={first}
       max={max}
       onNextClick={setFirst}
@@ -205,7 +275,7 @@ export const GroupTree = ({
         setMax(max);
       }}
       inputGroupName="searchForGroups"
-      inputGroupPlaceholder={t("groups:searchForGroups")}
+      inputGroupPlaceholder={t("searchForGroups")}
       inputGroupOnEnter={setSearch}
       toolbarItem={
         <InputGroup className="pf-u-pt-sm">
@@ -224,20 +294,25 @@ export const GroupTree = ({
     >
       {data.length > 0 && (
         <TreeView
-          data={data}
+          data={data.slice(0, max)}
           allExpanded={search.length > 0}
           activeItems={activeItem ? [activeItem] : undefined}
           hasGuides
           hasSelectableNodes
           className="keycloak_groups_treeview"
           onSelect={(_, item) => {
+            if (item.id === "next") return;
             setActiveItem(item);
-            if (canViewDetails) {
-              const id = item.id?.substring(item.id.lastIndexOf("/") + 1);
-              const subGroups: GroupRepresentation[] = [];
-              findGroup(groups, id!, [], subGroups);
-              setSubGroups(subGroups);
+            const id = item.id?.substring(item.id.lastIndexOf("/") + 1);
+            const subGroups: GroupRepresentation[] = [];
+            findGroup(groups, id!, [], subGroups);
+            setSubGroups(subGroups);
+
+            if (canViewDetails || subGroups.at(-1)?.access?.view) {
               navigate(toGroups({ realm, id: item.id }));
+            } else {
+              addAlert(t("noViewRights"), AlertVariant.warning);
+              navigate(toGroups({ realm }));
             }
           }}
         />

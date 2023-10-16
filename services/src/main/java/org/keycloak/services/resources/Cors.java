@@ -22,8 +22,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.ResponseBuilder;
 import org.jboss.logging.Logger;
 import org.keycloak.http.HttpRequest;
 import org.keycloak.common.util.CollectionUtil;
@@ -42,7 +42,7 @@ public class Cors {
 
     public static final long DEFAULT_MAX_AGE = TimeUnit.HOURS.toSeconds(1);
     public static final String DEFAULT_ALLOW_METHODS = "GET, HEAD, OPTIONS";
-    public static final String DEFAULT_ALLOW_HEADERS = "Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers";
+    public static final String DEFAULT_ALLOW_HEADERS = "Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, DPoP";
 
     public static final String ORIGIN_HEADER = "Origin";
     public static final String AUTHORIZATION_HEADER = "Authorization";

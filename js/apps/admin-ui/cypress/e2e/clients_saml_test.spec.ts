@@ -50,7 +50,7 @@ describe("Clients SAML tests", () => {
       cy.findByTestId("forceNameIdFormat").click({
         force: true,
       });
-      cy.findByTestId("settingsSave").click();
+      cy.findByTestId("settings-save").click();
       masthead.checkNotificationMessage("Client successfully updated");
     });
   });
@@ -89,7 +89,7 @@ describe("Clients SAML tests", () => {
 
     it("should disable client signature", () => {
       cy.intercept(
-        "admin/realms/master/clients/*/certificates/saml.signing"
+        "admin/realms/master/clients/*/certificates/saml.signing",
       ).as("load");
       cy.findByTestId("clientSignature").click({ force: true });
 
@@ -106,7 +106,7 @@ describe("Clients SAML tests", () => {
 
       cy.findByTestId("generate").click();
       masthead.checkNotificationMessage(
-        "New key pair and certificate generated successfully"
+        "New key pair and certificate generated successfully",
       );
 
       modalUtils.confirmModal();
@@ -190,27 +190,6 @@ describe("Clients SAML tests", () => {
 
       settingsTab.assertLoginThemeDropdown();
       settingsTab.assertLoginSettings();
-    });
-  });
-
-  describe("Accessibility tests for clients saml", () => {
-    beforeEach(() => {
-      loginPage.logIn();
-      keycloakBefore();
-      sidebarPage.goToClients();
-      cy.injectAxe();
-    });
-
-    it("Check a11y violations on load/ clients saml", () => {
-      const samlClient = "saml";
-      adminClient.createClient({
-        clientId: "saml",
-        protocol: samlClient,
-      });
-      listingPage.searchItem(samlClient).goToItemDetails(samlClient);
-      cy.checkA11y();
-
-      adminClient.deleteClient(samlClient);
     });
   });
 });

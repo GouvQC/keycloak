@@ -2,14 +2,19 @@
 <#import "/templates/kc.adoc" as kc>
 <#import "/templates/options.adoc" as opts>
 <#import "/templates/links.adoc" as links>
+<#import "/templates/profile.adoc" as profile>
 
 <@tmpl.guide
 title="Basic Keycloak deployment"
 priority=20
-summary="How to install Keycloak using the Operator on Kubernetes or OpenShift">
+summary="How to install Keycloak using the Operator">
 
 == Performing a basic Keycloak deployment
-This guide describes how to perform a basic Keycloak Deployment on Kubernetes or OpenShift using the Operator.
+This {section} describes how to perform a basic Keycloak Deployment on
+<@profile.ifCommunity>
+Kubernetes or
+</@profile.ifCommunity>
+OpenShift using the Operator.
 
 === Preparing for deployment
 
@@ -23,13 +28,13 @@ Once the Keycloak Operator is installed and running in the cluster namespace, yo
 
 A database should be available and accessible from the cluster namespace where Keycloak is installed.
 For a list of supported databases, see <@links.server id="db"/>.
-The Keycloak Operator does not manage the database and you need to provision it yourself. Consider verifying your cloud provider offering or using a database operator such as https://access.crunchydata.com/documentation/postgres-operator/latest/[Crunchy].
+The Keycloak Operator does not manage the database and you need to provision it yourself. Consider verifying your cloud provider offering or using a database operator.
 
-For development purposes, you can use an ephemeral PostgreSQL pod installation. To provision it, enter the following commands:
+For development purposes, you can use an ephemeral PostgreSQL pod installation. To provision it, follow the approach below:
 
-[source,bash]
+Create YAML file `example-postgres.yaml`:
+[source,yaml]
 ----
-cat <<EOF >> example-postgres.yaml
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -48,6 +53,9 @@ spec:
       containers:
         - name: postgresql-db
           image: postgres:latest
+          volumeMounts:
+            - mountPath: /data
+              name: cache-volume
           env:
             - name: POSTGRES_PASSWORD
               value: testpassword
@@ -55,6 +63,9 @@ spec:
               value: /data/pgdata
             - name: POSTGRES_DB
               value: keycloak
+      volumes:
+        - name: cache-volume
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -67,7 +78,12 @@ spec:
   ports:
   - port: 5432
     targetPort: 5432
-EOF
+----
+
+Apply the changes:
+
+[source,bash]
+----
 kubectl apply -f example-postgres.yaml
 ----
 
@@ -76,7 +92,11 @@ kubectl apply -f example-postgres.yaml
 For a production ready installation, you need a hostname that can be used to contact Keycloak.
 See <@links.server id="hostname"/> for the available configurations.
 
-For development purposes, this guide will use `test.keycloak.org`.
+For development purposes, this {section} will use `test.keycloak.org`.
+
+When running on OpenShift, with ingress enabled, and with the spec.ingress.classname set to openshift-default, you may leave the spec.hostname.hostname unpopulated in the Keycloak CR.
+The operator will assign a default hostname to the stored version of the CR similar to what would be created by an OpenShift Route without an explicit host - that is ingress-namespace.appsDomain
+If the appsDomain changes, or should you need a different hostname for any reason, then update the Keycloak CR.
 
 ==== TLS Certificate and key
 
@@ -108,11 +128,11 @@ kubectl create secret generic keycloak-db-secret \
   --from-literal=password=[your_database_password]
 ----
 
-You can customize several fields using the Keycloak CRD. However, for a basic deployment, you can enter the following example commands:
+You can customize several fields using the Keycloak CRD. For a basic deployment, you can stick to the following approach:
 
-[source,bash]
+Create YAML file `example-kc.yaml`:
+[source,yaml]
 ----
-cat <<EOF >> example-kc.yaml
 apiVersion: k8s.keycloak.org/v2alpha1
 kind: Keycloak
 metadata:
@@ -132,7 +152,12 @@ spec:
     tlsSecret: example-tls-secret
   hostname:
     hostname: test.keycloak.org
-EOF
+----
+
+Apply the changes:
+
+[source,bash]
+----
 kubectl apply -f example-kc.yaml
 ----
 
@@ -160,12 +185,29 @@ CONDITION: RollingUpdate
 
 === Accessing the Keycloak deployment
 
-The Keycloak deployment is exposed through a basic Ingress and is accessible through the provided hostname.
+The Keycloak deployment is exposed through a basic Ingress and is accessible through the provided hostname.  On installations with multiple default IngressClass instances
+or when running on OpenShift 4.12+ you should provide an ingressClassName by setting `ingress` spec with `className` property to the desired class name:
+
+Edit YAML file `example-kc.yaml`:
+
+[source,yaml]
+----
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: example-kc
+spec:
+    ...
+    ingress:
+      className: openshift-default
+----
+
 If the default ingress does not fit your use case, disable it by setting `ingress` spec with `enabled` property to `false` value:
 
-[source,bash]
+Edit YAML file `example-kc.yaml`:
+
+[source,yaml]
 ----
-cat <<EOF >> example-kc.yaml
 apiVersion: k8s.keycloak.org/v2alpha1
 kind: Keycloak
 metadata:
@@ -174,7 +216,12 @@ spec:
     ...
     ingress:
       enabled: false
-EOF
+----
+
+Apply the changes:
+
+[source,bash]
+----
 kubectl apply -f example-kc.yaml
 ----
 You can provide an alternative ingress resource pointing to the service `<keycloak-cr-name>-service`.
@@ -188,14 +235,14 @@ kubectl port-forward service/example-kc-service 8443:8443
 
 === Accessing the Admin Console
 
-When deploying Keycloak, the operator generates an arbitrary initial admin `username` and `password` and stores those credentials as a Kubernetes basic-auth Secret in the same namespace as the CR.
+When deploying Keycloak, the operator generates an arbitrary initial admin `username` and `password` and stores those credentials as a basic-auth Secret object in the same namespace as the CR.
 
 [WARNING]
 ====
 Change the default admin credentials and enable MFA in Keycloak before going to production.
 ====
 
-To fetch the initial admin credentials, you have to read and decode a Kubernetes Secret.
+To fetch the initial admin credentials, you have to read and decode the Secret.
 The Secret name is derived from the Keycloak CR name plus the fixed suffix `-initial-admin`.
 To get the username and password for the `example-kc` CR, enter the following commands:
 

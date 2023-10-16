@@ -22,8 +22,13 @@ type IdKeyValueType = KeyValueType & {
   id: number;
 };
 
-export const MapComponent = ({ name, label, helpText }: ComponentProps) => {
-  const { t } = useTranslation("dynamic");
+export const MapComponent = ({
+  name,
+  label,
+  helpText,
+  required,
+}: ComponentProps) => {
+  const { t } = useTranslation();
 
   const { getValues, setValue, register } = useFormContext();
   const [map, setMap] = useState<IdKeyValueType[]>([]);
@@ -63,10 +68,9 @@ export const MapComponent = ({ name, label, helpText }: ComponentProps) => {
   return (
     <FormGroup
       label={t(label!)}
-      labelIcon={
-        <HelpItem helpText={t(helpText!)} fieldLabelId={`dynamic:${label}`} />
-      }
+      labelIcon={<HelpItem helpText={t(helpText!)} fieldLabelId={`${label}`} />}
       fieldId={name!}
+      isRequired={required}
     >
       <Flex direction={{ default: "column" }}>
         <Flex>
@@ -74,21 +78,21 @@ export const MapComponent = ({ name, label, helpText }: ComponentProps) => {
             grow={{ default: "grow" }}
             spacer={{ default: "spacerNone" }}
           >
-            <strong>{t("common:key")}</strong>
+            <strong>{t("key")}</strong>
           </FlexItem>
           <FlexItem grow={{ default: "grow" }}>
-            <strong>{t("common:value")}</strong>
+            <strong>{t("value")}</strong>
           </FlexItem>
         </Flex>
         {map.map((attribute, index) => (
           <Flex key={attribute.id} data-testid="row">
             <FlexItem grow={{ default: "grow" }}>
               <TextInput
-                name={`${fieldName}[${index}].key`}
-                placeholder={t("common:keyPlaceholder")}
+                name={`${fieldName}.${index}.key`}
+                placeholder={t("keyPlaceholder")}
                 aria-label={t("key")}
                 defaultValue={attribute.key}
-                data-testid={`${fieldName}[${index}].key`}
+                data-testid={`${fieldName}.${index}.key`}
                 onChange={(value) => updateKey(index, value)}
                 onBlur={() => update()}
               />
@@ -98,11 +102,11 @@ export const MapComponent = ({ name, label, helpText }: ComponentProps) => {
               spacer={{ default: "spacerNone" }}
             >
               <TextInput
-                name={`${fieldName}[${index}].value`}
-                placeholder={t("common:valuePlaceholder")}
-                aria-label={t("common:value")}
+                name={`${fieldName}.${index}.value`}
+                placeholder={t("valuePlaceholder")}
+                aria-label={t("value")}
                 defaultValue={attribute.value}
-                data-testid={`${fieldName}[${index}].value`}
+                data-testid={`${fieldName}.${index}.value`}
                 onChange={(value) => updateValue(index, value)}
                 onBlur={() => update()}
               />
@@ -110,10 +114,10 @@ export const MapComponent = ({ name, label, helpText }: ComponentProps) => {
             <FlexItem>
               <Button
                 variant="link"
-                title={t("common:removeAttribute")}
+                title={t("removeAttribute")}
                 isDisabled={map.length === 1}
                 onClick={() => remove(index)}
-                data-testid={`${fieldName}[${index}].remove`}
+                data-testid={`${fieldName}.${index}.remove`}
               >
                 <MinusCircleIcon />
               </Button>
@@ -132,7 +136,7 @@ export const MapComponent = ({ name, label, helpText }: ComponentProps) => {
               setMap([...map, { key: "", value: "", id: generateId() }])
             }
           >
-            {t("common:addAttribute")}
+            {t("addAttribute")}
           </Button>
         </ActionListItem>
       </ActionList>

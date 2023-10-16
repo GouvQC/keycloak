@@ -9,10 +9,10 @@ import { FormProvider, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 
+import { adminClient } from "../../admin-client";
 import { useAlerts } from "../../components/alert/Alerts";
-import { FormAccess } from "../../components/form-access/FormAccess";
+import { FormAccess } from "../../components/form/FormAccess";
 import { ViewHeader } from "../../components/view-header/ViewHeader";
-import { useAdminClient } from "../../context/auth/AdminClient";
 import { useRealm } from "../../context/realm-context/RealmContext";
 import { toAuthentication } from "../routes/Authentication";
 import { toFlow } from "../routes/Flow";
@@ -20,10 +20,9 @@ import { FlowType } from "./FlowType";
 import { NameDescription } from "./NameDescription";
 
 export default function CreateFlow() {
-  const { t } = useTranslation("authentication");
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { realm } = useRealm();
-  const { adminClient } = useAdminClient();
   const { addAlert } = useAlerts();
   const form = useForm<AuthenticationFlowRepresentation>();
   const { handleSubmit } = form;
@@ -32,33 +31,29 @@ export default function CreateFlow() {
     const flow = { ...formValues, builtIn: false, topLevel: true };
 
     try {
-      const { id } = await adminClient.authenticationManagement.createFlow(
-        flow
-      );
+      const { id } =
+        await adminClient.authenticationManagement.createFlow(flow);
       addAlert(t("flowCreatedSuccess"), AlertVariant.success);
       navigate(
         toFlow({
           realm,
           id: id!,
           usedBy: "notInUse",
-        })
+        }),
       );
     } catch (error: any) {
       addAlert(
         t("flowCreateError", {
           error: error.response?.data?.errorMessage || error,
         }),
-        AlertVariant.danger
+        AlertVariant.danger,
       );
     }
   };
 
   return (
     <>
-      <ViewHeader
-        titleKey="authentication:createFlow"
-        subKey="authentication-help:createFlow"
-      />
+      <ViewHeader titleKey="createFlow" subKey="authenticationCreateFlowHelp" />
       <PageSection variant="light">
         <FormProvider {...form}>
           <FormAccess
@@ -70,7 +65,7 @@ export default function CreateFlow() {
             <FlowType />
             <ActionGroup>
               <Button data-testid="create" type="submit">
-                {t("common:create")}
+                {t("create")}
               </Button>
               <Button
                 data-testid="cancel"
@@ -79,7 +74,7 @@ export default function CreateFlow() {
                   <Link {...props} to={toAuthentication({ realm })}></Link>
                 )}
               >
-                {t("common:cancel")}
+                {t("cancel")}
               </Button>
             </ActionGroup>
           </FormAccess>

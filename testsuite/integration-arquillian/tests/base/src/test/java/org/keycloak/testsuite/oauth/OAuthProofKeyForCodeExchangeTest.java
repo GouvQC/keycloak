@@ -27,7 +27,7 @@ import org.keycloak.testsuite.admin.ApiUtil;
 import org.keycloak.testsuite.util.ClientManager;
 import org.keycloak.testsuite.util.OAuthClient;
 import org.keycloak.testsuite.util.UserBuilder;
-import javax.ws.rs.core.UriBuilder;
+import jakarta.ws.rs.core.UriBuilder;
 import java.security.MessageDigest;
 import java.util.List;
 import java.util.stream.Stream;
@@ -37,6 +37,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.keycloak.testsuite.admin.AbstractAdminTest.loadJson;
 import static org.keycloak.testsuite.admin.ApiUtil.findUserByUsername;
@@ -416,8 +417,8 @@ public class OAuthProofKeyForCodeExchangeTest extends AbstractKeycloakTest {
         OAuthClient.AccessTokenResponse response = oauth.doAccessTokenRequest(code, "password");
 
         assertEquals(200, response.getStatusCode());
-        Assert.assertThat(response.getExpiresIn(), allOf(greaterThanOrEqualTo(250), lessThanOrEqualTo(300)));
-        Assert.assertThat(response.getRefreshExpiresIn(), allOf(greaterThanOrEqualTo(1750), lessThanOrEqualTo(1800)));
+        assertThat(response.getExpiresIn(), allOf(greaterThanOrEqualTo(250), lessThanOrEqualTo(300)));
+        assertThat(response.getRefreshExpiresIn(), allOf(greaterThanOrEqualTo(1750), lessThanOrEqualTo(1800)));
         assertEquals("Bearer", response.getTokenType());
 
         String expectedKid = Stream.of(oauth.doCertsRequest("test").getKeys())
@@ -445,7 +446,8 @@ public class OAuthProofKeyForCodeExchangeTest extends AbstractKeycloakTest {
         AccessToken token = oauth.verifyToken(response.getAccessToken());
 
         assertEquals(findUserByUsername(adminClient.realm("test"), "test-user@localhost").getId(), token.getSubject());
-        Assert.assertNotEquals("test-user@localhost", token.getSubject());
+        // The following check is not valid anymore since file store does have the same ID, and is redundant due to the previous line
+        // Assert.assertNotEquals("test-user@localhost", token.getSubject());
         assertEquals(sessionId, token.getSessionState());
         assertEquals(2, token.getRealmAccess().getRoles().size());
         assertTrue(token.getRealmAccess().isUserInRole("user"));
@@ -464,9 +466,9 @@ public class OAuthProofKeyForCodeExchangeTest extends AbstractKeycloakTest {
         RefreshToken refreshToken = oauth.parseRefreshToken(refreshTokenString);
 
         Assert.assertNotNull(refreshTokenString);
-        Assert.assertThat(token.getExpiration() - getCurrentTime(), allOf(greaterThanOrEqualTo(200), lessThanOrEqualTo(350)));
+        assertThat(token.getExpiration() - getCurrentTime(), allOf(greaterThanOrEqualTo(200), lessThanOrEqualTo(350)));
         int actual = refreshToken.getExpiration() - getCurrentTime();
-        Assert.assertThat(actual, allOf(greaterThanOrEqualTo(1799 - RefreshTokenTest.ALLOWED_CLOCK_SKEW), lessThanOrEqualTo(1800 + RefreshTokenTest.ALLOWED_CLOCK_SKEW)));
+        assertThat(actual, allOf(greaterThanOrEqualTo(1799 - RefreshTokenTest.ALLOWED_CLOCK_SKEW), lessThanOrEqualTo(1800 + RefreshTokenTest.ALLOWED_CLOCK_SKEW)));
         assertEquals(sessionId, refreshToken.getSessionState());
 
         setTimeOffset(2);
@@ -480,11 +482,11 @@ public class OAuthProofKeyForCodeExchangeTest extends AbstractKeycloakTest {
         assertEquals(sessionId, refreshedToken.getSessionState());
         assertEquals(sessionId, refreshedRefreshToken.getSessionState());
 
-        Assert.assertThat(refreshResponse.getExpiresIn(), allOf(greaterThanOrEqualTo(250), lessThanOrEqualTo(300)));
-        Assert.assertThat(refreshedToken.getExpiration() - getCurrentTime(), allOf(greaterThanOrEqualTo(250 - RefreshTokenTest.ALLOWED_CLOCK_SKEW), lessThanOrEqualTo(300 + RefreshTokenTest.ALLOWED_CLOCK_SKEW)));
+        assertThat(refreshResponse.getExpiresIn(), allOf(greaterThanOrEqualTo(250), lessThanOrEqualTo(300)));
+        assertThat(refreshedToken.getExpiration() - getCurrentTime(), allOf(greaterThanOrEqualTo(250 - RefreshTokenTest.ALLOWED_CLOCK_SKEW), lessThanOrEqualTo(300 + RefreshTokenTest.ALLOWED_CLOCK_SKEW)));
 
-        Assert.assertThat(refreshedToken.getExpiration() - token.getExpiration(), allOf(greaterThanOrEqualTo(1), lessThanOrEqualTo(10)));
-        Assert.assertThat(refreshedRefreshToken.getExpiration() - refreshToken.getExpiration(), allOf(greaterThanOrEqualTo(1), lessThanOrEqualTo(10)));
+        assertThat(refreshedToken.getExpiration() - token.getExpiration(), allOf(greaterThanOrEqualTo(1), lessThanOrEqualTo(10)));
+        assertThat(refreshedRefreshToken.getExpiration() - refreshToken.getExpiration(), allOf(greaterThanOrEqualTo(1), lessThanOrEqualTo(10)));
 
         Assert.assertNotEquals(token.getId(), refreshedToken.getId());
         Assert.assertNotEquals(refreshToken.getId(), refreshedRefreshToken.getId());
@@ -492,7 +494,8 @@ public class OAuthProofKeyForCodeExchangeTest extends AbstractKeycloakTest {
         assertEquals("Bearer", refreshResponse.getTokenType());
 
         assertEquals(findUserByUsername(adminClient.realm("test"), "test-user@localhost").getId(), refreshedToken.getSubject());
-        Assert.assertNotEquals("test-user@localhost", refreshedToken.getSubject());
+        // The following check is not valid anymore since file store does have the same ID, and is redundant due to the previous line
+        // Assert.assertNotEquals("test-user@localhost", refreshedToken.getSubject());
 
         assertEquals(2, refreshedToken.getRealmAccess().getRoles().size());
         Assert.assertTrue(refreshedToken.getRealmAccess().isUserInRole("user"));

@@ -1,3 +1,5 @@
+import { v4 as uuid } from "uuid";
+
 import SidebarPage from "../support/pages/admin-ui/SidebarPage";
 import LoginPage from "../support/pages/LoginPage";
 import CreateUserPage from "../support/pages/admin-ui/manage/users/CreateUserPage";
@@ -12,6 +14,8 @@ import adminClient from "../support/util/AdminClient";
 import CredentialsPage from "../support/pages/admin-ui/manage/users/CredentialsPage";
 import UsersPage from "../support/pages/admin-ui/manage/users/UsersPage";
 import IdentityProviderLinksTab from "../support/pages/admin-ui/manage/users/user_details/tabs/IdentityProviderLinksTab";
+import RoleMappingTab from "../support/pages/admin-ui/manage/RoleMappingTab";
+import CommonPage from "../support/pages/CommonPage";
 
 let groupName = "group";
 let groupsList: string[] = [];
@@ -37,7 +41,7 @@ describe("User creation", () => {
 
   before(async () => {
     for (let i = 0; i <= 2; i++) {
-      groupName += "_" + crypto.randomUUID();
+      groupName += "_" + uuid();
       await adminClient.createGroup(groupName);
       groupsList = [...groupsList, groupName];
     }
@@ -61,7 +65,7 @@ describe("User creation", () => {
   });
 
   it("Create user test", () => {
-    itemId += "_" + crypto.randomUUID();
+    itemId += "_" + uuid();
     // Create
     createUserPage.goToCreateUser();
 
@@ -73,7 +77,7 @@ describe("User creation", () => {
   });
 
   it("Create user with groups test", () => {
-    itemIdWithGroups += crypto.randomUUID();
+    itemIdWithGroups += uuid();
     // Add user from search bar
     createUserPage.goToCreateUser();
 
@@ -95,7 +99,7 @@ describe("User creation", () => {
   });
 
   it("Create user with credentials test", () => {
-    itemIdWithCred += "_" + crypto.randomUUID();
+    itemIdWithCred += "_" + uuid();
 
     // Add user from search bar
     createUserPage.goToCreateUser();
@@ -238,7 +242,7 @@ describe("User creation", () => {
           enabled: true,
         }),
         identityProviders.forEach((idp) =>
-          adminClient.createIdentityProvider(idp.displayName, idp.alias)
+          adminClient.createIdentityProvider(idp.displayName, idp.alias),
         ),
       ]);
     });
@@ -247,8 +251,8 @@ describe("User creation", () => {
       await adminClient.deleteUser(usernameIdpLinksTest);
       await Promise.all(
         identityProviders.map((idp) =>
-          adminClient.deleteIdentityProvider(idp.alias)
-        )
+          adminClient.deleteIdentityProvider(idp.alias),
+        ),
       );
     });
 
@@ -263,7 +267,7 @@ describe("User creation", () => {
 
         if (linkedIdpsCount == 0) {
           identityProviderLinksTab.assertNoIdentityProvidersLinkedMessageExist(
-            true
+            true,
           );
         }
         identityProviderLinksTab
@@ -281,7 +285,7 @@ describe("User creation", () => {
           .assertAvailableIdentityProviderExist($idp.testName, false);
         if (availableIdpsCount - 1 == 0) {
           identityProviderLinksTab.assertNoAvailableIdentityProvidersMessageExist(
-            true
+            true,
           );
         }
       });
@@ -291,8 +295,8 @@ describe("User creation", () => {
       cy.wrap(null).then(() =>
         adminClient.unlinkAccountIdentityProvider(
           usernameIdpLinksTest,
-          identityProviders[0].displayName
-        )
+          identityProviders[0].displayName,
+        ),
       );
 
       sidebarPage.goToUsers();
@@ -302,15 +306,15 @@ describe("User creation", () => {
       cy.wrap(null).then(() =>
         adminClient.linkAccountIdentityProvider(
           usernameIdpLinksTest,
-          identityProviders[0].displayName
-        )
+          identityProviders[0].displayName,
+        ),
       );
 
       identityProviderLinksTab
         .clickLinkAccount(identityProviders[0].testName)
         .assertLinkAccountModalTitleEqual(identityProviders[0].testName)
         .assertLinkAccountModalIdentityProviderInputEqual(
-          identityProviders[0].testName
+          identityProviders[0].testName,
         )
         .typeLinkAccountModalUserId("testUserId")
         .typeLinkAccountModalUsername("testUsername")
@@ -325,7 +329,7 @@ describe("User creation", () => {
 
         if (availableIdpsCount == 0) {
           identityProviderLinksTab.assertNoAvailableIdentityProvidersMessageExist(
-            true
+            true,
           );
         }
         identityProviderLinksTab
@@ -340,7 +344,7 @@ describe("User creation", () => {
           .assertAvailableIdentityProviderExist($idp.testName, true);
         if (linkedIdpsCount - 1 == 0) {
           identityProviderLinksTab.assertNoIdentityProvidersLinkedMessageExist(
-            true
+            true,
           );
         }
       });
@@ -354,7 +358,7 @@ describe("User creation", () => {
       .clickEmptyStateResetBtn()
       .fillResetCredentialForm();
     masthead.checkNotificationMessage(
-      "Failed: Failed to send execute actions email"
+      "Failed: Failed to send execute actions email",
     );
   });
 
@@ -366,7 +370,7 @@ describe("User creation", () => {
       .fillResetCredentialForm();
 
     masthead.checkNotificationMessage(
-      "Failed: Failed to send execute actions email"
+      "Failed: Failed to send execute actions email",
     );
   });
 
@@ -379,7 +383,7 @@ describe("User creation", () => {
       .clickEditConfirmationBtn();
 
     masthead.checkNotificationMessage(
-      "The user label has been changed successfully."
+      "The user label has been changed successfully.",
     );
   });
 
@@ -400,7 +404,7 @@ describe("User creation", () => {
     modalUtils.checkModalTitle("Delete credentials?").confirmModal();
 
     masthead.checkNotificationMessage(
-      "The credentials has been deleted successfully."
+      "The credentials has been deleted successfully.",
     );
   });
 
@@ -444,6 +448,10 @@ describe("User creation", () => {
   });
 
   describe("Accessibility tests for users", () => {
+    const a11yUser = "a11y-user";
+    const role = "admin";
+    const roleMappingTab = new RoleMappingTab("");
+
     beforeEach(() => {
       loginPage.logIn();
       keycloakBefore();
@@ -455,9 +463,111 @@ describe("User creation", () => {
       cy.checkA11y();
     });
 
-    it("Check a11y violations on create user form", () => {
+    it("Check a11y violations on empty create user form", () => {
       createUserPage.goToCreateUser();
       cy.checkA11y();
+    });
+
+    it("Check a11y violations on user details tab", () => {
+      createUserPage.goToCreateUser();
+      createUserPage.createUser(a11yUser);
+      userDetailsPage.fillUserData();
+      createUserPage.save();
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on user attributes tab", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      attributesTab.goToAttributesTab();
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on user credentials tab setting a password", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      credentialsPage.goToCredentialsTab();
+      credentialsPage
+        .clickEmptyStatePasswordBtn()
+        .fillPasswordForm()
+        .clickConfirmationBtn()
+        .clickSetPasswordBtn();
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on user credentials tab resetting a password", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      credentialsPage.goToCredentialsTab();
+      credentialsPage.clickResetBtn();
+      cy.checkA11y();
+      modalUtils.cancelModal();
+    });
+
+    it("Check a11y violations on user role mapping tab", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      roleMappingTab.goToRoleMappingTab();
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on user role mapping tab assigning a role dialog", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      roleMappingTab.goToRoleMappingTab();
+      cy.findByTestId("assignRole").click();
+      cy.checkA11y();
+      roleMappingTab.selectRow(role).assign();
+    });
+
+    it("Check a11y violations on user groups tab", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      userGroupsPage.goToGroupsTab();
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on user groups tab joining group dialog", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      userGroupsPage.goToGroupsTab();
+      cy.findByTestId("no-groups-empty-action").click();
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on user groups tab joining group", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      userGroupsPage.goToGroupsTab();
+      cy.findByTestId("no-groups-empty-action").click();
+      const groupsListCopy = groupsList.slice(0, 1);
+      groupsListCopy.forEach((element) => {
+        cy.findByTestId(`${element}-check`).click();
+      });
+
+      createUserPage.joinGroups();
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on user consents tab", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      userDetailsPage.goToConsentsTab();
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on user identity provider links tab", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      userDetailsPage.goToIdentityProviderLinksTab();
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on user sessions tab", () => {
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      userDetailsPage.goToSessionsTab();
+      cy.checkA11y();
+    });
+
+    it("Check a11y violations on user deleting dialog", () => {
+      const commonPage = new CommonPage();
+      usersPage.goToUserListTab().goToUserDetailsPage(a11yUser);
+      commonPage
+        .actionToolbarUtils()
+        .clickActionToggleButton()
+        .clickDropdownItem("Delete");
+      cy.checkA11y();
+      cy.findByTestId("confirm").click();
     });
 
     it("Check a11y violations on permissions tab", () => {

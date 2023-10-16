@@ -54,7 +54,7 @@ const ValueInput = ({
   selectableValues,
   resources,
 }: ValueInputProps) => {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation();
   const { control, register, getValues } = useFormContext();
   const [isValueOpenArray, setIsValueOpenArray] = useState([false]);
 
@@ -69,7 +69,7 @@ const ValueInput = ({
 
     if (selectableValues) {
       values = defaultContextAttributes.find(
-        (attr) => attr.key === getValues().context?.[rowIndex]?.key
+        (attr) => attr.key === getValues().context?.[rowIndex]?.key,
       )?.values;
     }
 
@@ -78,7 +78,7 @@ const ValueInput = ({
 
   const renderSelectOptionType = () => {
     const scopeValues = resources?.find(
-      (resource) => resource.name === getValues().resources?.[rowIndex]?.key
+      (resource) => resource.name === getValues().resources?.[rowIndex]?.key,
     )?.scopes;
 
     if (attributeValues?.length && !resources) {
@@ -103,24 +103,24 @@ const ValueInput = ({
     <Td>
       {resources || attributeValues?.length ? (
         <Controller
-          name={`${name}[${rowIndex}].value`}
+          name={`${name}.${rowIndex}.value`}
           defaultValue={[]}
           control={control}
           render={({ field }) => (
             <Select
               toggleId={`${attribute.id}-value`}
               className="kc-attribute-value-selectable"
-              name={`${name}[${rowIndex}].value`}
+              name={`${name}.${rowIndex}.value`}
               chipGroupProps={{
                 numChips: 1,
-                expandedText: t("common:hide"),
-                collapsedText: t("common:showRemaining"),
+                expandedText: t("hide"),
+                collapsedText: t("showRemaining"),
               }}
               onToggle={(open) => toggleValueSelect(rowIndex, open)}
               isOpen={isValueOpenArray[rowIndex]}
               variant={SelectVariant.typeahead}
-              typeAheadAriaLabel={t("clients:selectOrTypeAKey")}
-              placeholderText={t("clients:selectOrTypeAKey")}
+              typeAheadAriaLabel={t("selectOrTypeAKey")}
+              placeholderText={t("selectOrTypeAKey")}
               selections={field.value}
               onSelect={(_, v) => {
                 field.onChange(v);
@@ -138,7 +138,7 @@ const ValueInput = ({
           className="value-input"
           defaultValue={attribute.value}
           data-testid="attribute-value-input"
-          aria-label={t("common:value")}
+          aria-label={t("value")}
           {...register(`${name}.${rowIndex}.value`)}
         />
       )}
@@ -151,7 +151,7 @@ export const KeyBasedAttributeInput = ({
   selectableValues,
   resources,
 }: AttributeInputProps) => {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation();
   const { control, watch } = useFormContext();
   const { fields, append, remove } = useFieldArray({
     control: control,
@@ -171,7 +171,7 @@ export const KeyBasedAttributeInput = ({
     }
   }, [fields]);
 
-  const watchLastValue = watch(`${name}[${fields.length - 1}].value`, "");
+  const watchLastValue = watch(`${name}.${fields.length - 1}.value`, "");
 
   return (
     <TableComposable
@@ -190,19 +190,19 @@ export const KeyBasedAttributeInput = ({
           <Tr key={attribute.id} data-testid="attribute-row">
             <Td>
               <Controller
-                name={`${name}[${rowIndex}].key`}
+                name={`${name}.${rowIndex}.key`}
                 defaultValue=""
                 control={control}
                 render={({ field }) => (
                   <Select
-                    toggleId={`${name}[${rowIndex}].key`}
+                    toggleId={`${name}.${rowIndex}.key`}
                     className="kc-attribute-key-selectable"
-                    name={`${name}[${rowIndex}].key`}
+                    name={`${name}.${rowIndex}.key`}
                     onToggle={(open) => toggleKeySelect(rowIndex, open)}
                     isOpen={isKeyOpenArray[rowIndex]}
                     variant={SelectVariant.typeahead}
-                    typeAheadAriaLabel={t("clients:selectOrTypeAKey")}
-                    placeholderText={t("clients:selectOrTypeAKey")}
+                    typeAheadAriaLabel={t("selectOrTypeAKey")}
+                    placeholderText={t("selectOrTypeAKey")}
                     selections={field.value}
                     onSelect={(_, v) => {
                       field.onChange(v.toString());
@@ -236,7 +236,7 @@ export const KeyBasedAttributeInput = ({
                 variant="link"
                 className="kc-attributes__minus-icon"
                 onClick={() => remove(rowIndex)}
-                aria-label={t("common:remove")}
+                aria-label={t("remove")}
               >
                 <MinusCircleIcon />
               </Button>

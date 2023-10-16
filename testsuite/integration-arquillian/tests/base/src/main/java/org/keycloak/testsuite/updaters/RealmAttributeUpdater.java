@@ -84,6 +84,11 @@ public class RealmAttributeUpdater extends ServerResourceUpdater<RealmAttributeU
         return this;
     }
 
+    public RealmAttributeUpdater setEditUserNameAllowed(Boolean value) {
+        rep.setEditUsernameAllowed(value);
+        return this;
+    }
+
     public RealmAttributeUpdater setDuplicateEmailsAllowed(Boolean value) {
         rep.setDuplicateEmailsAllowed(value);
         return this;
@@ -157,6 +162,11 @@ public class RealmAttributeUpdater extends ServerResourceUpdater<RealmAttributeU
 
     public RealmAttributeUpdater setOtpPolicyCodeReusable(Boolean isCodeReusable) {
         rep.setOtpPolicyCodeReusable(isCodeReusable);
+        return this;
+    }
+
+    public RealmAttributeUpdater setSmtpServer(String name, String value) {
+        rep.getSmtpServer().put(name, value);
         return this;
     }
 }

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import type ClientRepresentation from "@keycloak/keycloak-admin-client/lib/defs/clientRepresentation";
+import type { RoleMappingPayload } from "@keycloak/keycloak-admin-client/lib/defs/roleRepresentation";
 import {
   AlertVariant,
   Divider,
@@ -7,14 +7,15 @@ import {
   PageSection,
   Switch,
 } from "@patternfly/react-core";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
-import type ClientRepresentation from "@keycloak/keycloak-admin-client/lib/defs/clientRepresentation";
-import { FormAccess } from "../../components/form-access/FormAccess";
+import { FormAccess } from "../../components/form/FormAccess";
 import { HelpItem } from "ui-shared";
-import { useAdminClient } from "../../context/auth/AdminClient";
+
+import { adminClient } from "../../admin-client";
 import { useAlerts } from "../../components/alert/Alerts";
 import { RoleMapping, Row } from "../../components/role-mapping/RoleMapping";
-import type { RoleMappingPayload } from "@keycloak/keycloak-admin-client/lib/defs/roleRepresentation";
 import { useAccess } from "../../context/access/Access";
 
 type DedicatedScopeProps = {
@@ -24,8 +25,7 @@ type DedicatedScopeProps = {
 export const DedicatedScope = ({
   client: initialClient,
 }: DedicatedScopeProps) => {
-  const { t } = useTranslation("clients");
-  const { adminClient } = useAdminClient();
+  const { t } = useTranslation();
   const { addAlert, addError } = useAlerts();
 
   const [client, setClient] = useState<ClientRepresentation>(initialClient);
@@ -44,7 +44,7 @@ export const DedicatedScope = ({
           {
             id: client.id!,
           },
-          realmRoles
+          realmRoles,
         ),
         ...rows
           .filter((row) => row.client !== undefined)
@@ -54,14 +54,14 @@ export const DedicatedScope = ({
                 id: client.id!,
                 client: row.client!.id!,
               },
-              [row.role as RoleMappingPayload]
-            )
+              [row.role as RoleMappingPayload],
+            ),
           ),
       ]);
 
       addAlert(t("clientScopeSuccess"), AlertVariant.success);
     } catch (error) {
-      addError("clients:clientScopeError", error);
+      addError("clientScopeError", error);
     }
   };
 
@@ -72,7 +72,7 @@ export const DedicatedScope = ({
       addAlert(t("clientScopeSuccess"), AlertVariant.success);
       setClient(newClient);
     } catch (error) {
-      addError("clients:clientScopeError", error);
+      addError("clientScopeError", error);
     }
   };
 
@@ -88,16 +88,16 @@ export const DedicatedScope = ({
           label={t("fullScopeAllowed")}
           labelIcon={
             <HelpItem
-              helpText={t("clients-help:fullScopeAllowed")}
-              fieldLabelId="clients:fullScopeAllowed"
+              helpText={t("fullScopeAllowedHelp")}
+              fieldLabelId="fullScopeAllowed"
             />
           }
           fieldId="fullScopeAllowed"
         >
           <Switch
             id="fullScopeAllowed"
-            label={t("common:on")}
-            labelOff={t("common:off")}
+            label={t("on")}
+            labelOff={t("off")}
             isChecked={client.fullScopeAllowed}
             onChange={update}
             aria-label={t("fullScopeAllowed")}

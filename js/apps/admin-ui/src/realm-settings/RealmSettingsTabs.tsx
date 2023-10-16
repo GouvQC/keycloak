@@ -14,6 +14,7 @@ import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
+import { adminClient } from "../admin-client";
 import { useAlerts } from "../components/alert/Alerts";
 import { useConfirmDialog } from "../components/confirm-dialog/ConfirmDialog";
 import type { KeyValueType } from "../components/key-value-form/key-value-convert";
@@ -22,32 +23,31 @@ import {
   useRoutableTab,
 } from "../components/routable-tabs/RoutableTabs";
 import { ViewHeader } from "../components/view-header/ViewHeader";
-import { useAdminClient } from "../context/auth/AdminClient";
-import { useRealm } from "../context/realm-context/RealmContext";
 import { useRealms } from "../context/RealmsContext";
+import { useRealm } from "../context/realm-context/RealmContext";
 import { toDashboard } from "../dashboard/routes/Dashboard";
 import environment from "../environment";
 import helpUrls from "../help-urls";
 import { convertFormValuesToObject, convertToFormValues } from "../util";
 import useIsFeatureEnabled, { Feature } from "../utils/useIsFeatureEnabled";
 import { RealmSettingsEmailTab } from "./EmailTab";
-import { EventsTab } from "./event-config/EventsTab";
 import { RealmSettingsGeneralTab } from "./GeneralTab";
-import { KeysTab } from "./keys/KeysTab";
 import { LocalizationTab } from "./LocalizationTab";
 import { RealmSettingsLoginTab } from "./LoginTab";
 import { PartialExportDialog } from "./PartialExport";
 import { PartialImportDialog } from "./PartialImport";
 import { PoliciesTab } from "./PoliciesTab";
 import ProfilesTab from "./ProfilesTab";
-import { ClientPoliciesTab, toClientPolicies } from "./routes/ClientPolicies";
-import { RealmSettingsTab, toRealmSettings } from "./routes/RealmSettings";
-import { SecurityDefenses } from "./security-defences/SecurityDefenses";
 import { RealmSettingsSessionsTab } from "./SessionsTab";
 import { RealmSettingsThemesTab } from "./ThemesTab";
 import { RealmSettingsTokensTab } from "./TokensTab";
-import { UserProfileTab } from "./user-profile/UserProfileTab";
 import { UserRegistration } from "./UserRegistration";
+import { EventsTab } from "./event-config/EventsTab";
+import { KeysTab } from "./keys/KeysTab";
+import { ClientPoliciesTab, toClientPolicies } from "./routes/ClientPolicies";
+import { RealmSettingsTab, toRealmSettings } from "./routes/RealmSettings";
+import { SecurityDefenses } from "./security-defences/SecurityDefenses";
+import { UserProfileTab } from "./user-profile/UserProfileTab";
 
 type RealmSettingsHeaderProps = {
   onChange: (value: boolean) => void;
@@ -64,8 +64,7 @@ const RealmSettingsHeader = ({
   realmName,
   refresh,
 }: RealmSettingsHeaderProps) => {
-  const { t } = useTranslation("realm-settings");
-  const { adminClient } = useAdminClient();
+  const { t } = useTranslation();
   const { refresh: refreshRealms } = useRealms();
   const { addAlert, addError } = useAlerts();
   const navigate = useNavigate();
@@ -73,9 +72,9 @@ const RealmSettingsHeader = ({
   const [partialExportOpen, setPartialExportOpen] = useState(false);
 
   const [toggleDisableDialog, DisableConfirm] = useConfirmDialog({
-    titleKey: "realm-settings:disableConfirmTitle",
-    messageKey: "realm-settings:disableConfirm",
-    continueButtonLabel: "common:disable",
+    titleKey: "disableConfirmTitle",
+    messageKey: "disableConfirmRealm",
+    continueButtonLabel: "disable",
     onConfirm: () => {
       onChange(!value);
       save();
@@ -83,19 +82,19 @@ const RealmSettingsHeader = ({
   });
 
   const [toggleDeleteDialog, DeleteConfirm] = useConfirmDialog({
-    titleKey: "realm-settings:deleteConfirmTitle",
-    messageKey: "realm-settings:deleteConfirm",
-    continueButtonLabel: "common:delete",
+    titleKey: "deleteConfirmTitle",
+    messageKey: "deleteConfirmRealmSetting",
+    continueButtonLabel: "delete",
     continueButtonVariant: ButtonVariant.danger,
     onConfirm: async () => {
       try {
         await adminClient.realms.del({ realm: realmName });
-        addAlert(t("deletedSuccess"), AlertVariant.success);
+        addAlert(t("deletedSuccessRealmSetting"), AlertVariant.success);
         await refreshRealms();
         navigate(toDashboard({ realm: environment.masterRealm }));
         refresh();
       } catch (error) {
-        addError("realm-settings:deleteError", error);
+        addError("deleteErrorRealmSetting", error);
       }
     },
   });
@@ -114,7 +113,7 @@ const RealmSettingsHeader = ({
       />
       <ViewHeader
         titleKey={realmName}
-        subKey="realm-settings:realmSettingsExplain"
+        subKey="realmSettingsExplain"
         helpUrl={helpUrls.realmSettingsUrl}
         divider={false}
         dropdownItems={[
@@ -136,7 +135,7 @@ const RealmSettingsHeader = ({
           </DropdownItem>,
           <DropdownSeparator key="separator" />,
           <DropdownItem key="delete" onClick={toggleDeleteDialog}>
-            {t("common:delete")}
+            {t("delete")}
           </DropdownItem>,
         ]}
         isEnabled={value}
@@ -162,8 +161,7 @@ export const RealmSettingsTabs = ({
   realm,
   refresh,
 }: RealmSettingsTabsProps) => {
-  const { t } = useTranslation("realm-settings");
-  const { adminClient } = useAdminClient();
+  const { t } = useTranslation();
   const { addAlert, addError } = useAlerts();
   const { realm: realmName } = useRealm();
   const { refresh: refreshRealms } = useRealms();
@@ -195,23 +193,26 @@ export const RealmSettingsTabs = ({
         Object.fromEntries(
           (r.attributes["acr.loa.map"] as KeyValueType[])
             .filter(({ key }) => key !== "")
-            .map(({ key, value }) => [key, value])
-        )
+            .map(({ key, value }) => [key, value]),
+        ),
       );
     }
 
     try {
-      await adminClient.realms.update(
-        { realm: realmName },
-        {
-          ...realm,
-          ...r,
-          id: r.realm,
-        }
-      );
-      addAlert(t("saveSuccess"), AlertVariant.success);
+      const savedRealm: RealmRepresentation = {
+        ...realm,
+        ...r,
+        id: r.realm,
+      };
+
+      // For the default value, null is expected instead of an empty string.
+      if (savedRealm.smtpServer?.port === "") {
+        savedRealm.smtpServer = { ...savedRealm.smtpServer, port: null };
+      }
+      await adminClient.realms.update({ realm: realmName }, savedRealm);
+      addAlert(t("realmSaveSuccess"), AlertVariant.success);
     } catch (error) {
-      addError("realm-settings:saveError", error);
+      addError("realmSaveError", error);
     }
 
     const isRealmRenamed = realmName !== (r.realm || realm.realm);
@@ -244,7 +245,7 @@ export const RealmSettingsTabs = ({
       toClientPolicies({
         realm: realmName,
         tab,
-      })
+      }),
     );
 
   const clientPoliciesProfilesTab = useClientPoliciesTab("profiles");
@@ -270,6 +271,7 @@ export const RealmSettingsTabs = ({
         <RoutableTabs
           isBox
           mountOnEnter
+          aria-label="realm-settings-tabs"
           defaultLocation={toRealmSettings({
             realm: realmName,
             tab: "general",
@@ -294,7 +296,7 @@ export const RealmSettingsTabs = ({
             data-testid="rs-email-tab"
             {...emailTab}
           >
-            <RealmSettingsEmailTab realm={realm} />
+            <RealmSettingsEmailTab realm={realm} save={save} />
           </Tab>
           <Tab
             title={<TabTitleText>{t("themes")}</TabTitleText>}
@@ -304,7 +306,7 @@ export const RealmSettingsTabs = ({
             <RealmSettingsThemesTab realm={realm} save={save} />
           </Tab>
           <Tab
-            title={<TabTitleText>{t("realm-settings:keys")}</TabTitleText>}
+            title={<TabTitleText>{t("keys")}</TabTitleText>}
             data-testid="rs-keys-tab"
             {...keysTab}
           >
@@ -337,69 +339,63 @@ export const RealmSettingsTabs = ({
             <SecurityDefenses realm={realm} save={save} />
           </Tab>
           <Tab
-            title={<TabTitleText>{t("realm-settings:sessions")}</TabTitleText>}
+            title={<TabTitleText>{t("sessions")}</TabTitleText>}
             data-testid="rs-sessions-tab"
             {...sessionsTab}
           >
             <RealmSettingsSessionsTab key={key} realm={realm} save={save} />
           </Tab>
           <Tab
-            title={<TabTitleText>{t("realm-settings:tokens")}</TabTitleText>}
+            title={<TabTitleText>{t("tokens")}</TabTitleText>}
             data-testid="rs-tokens-tab"
             {...tokensTab}
           >
             <RealmSettingsTokensTab save={save} realm={realm} />
           </Tab>
-          <Tab
-            title={
-              <TabTitleText>{t("realm-settings:clientPolicies")}</TabTitleText>
-            }
-            data-testid="rs-clientPolicies-tab"
-            {...clientPoliciesTab}
-          >
-            <RoutableTabs
-              mountOnEnter
-              defaultLocation={toClientPolicies({
-                realm: realmName,
-                tab: "profiles",
-              })}
+          {isFeatureEnabled(Feature.ClientPolicies) && (
+            <Tab
+              title={<TabTitleText>{t("clientPolicies")}</TabTitleText>}
+              data-testid="rs-clientPolicies-tab"
+              {...clientPoliciesTab}
             >
-              <Tab
-                id="profiles"
-                data-testid="rs-policies-clientProfiles-tab"
-                aria-label={t("clientProfilesSubTab")}
-                title={<TabTitleText>{t("profiles")}</TabTitleText>}
-                tooltip={
-                  <Tooltip
-                    content={t("realm-settings:clientPoliciesProfilesHelpText")}
-                  />
-                }
-                {...clientPoliciesProfilesTab}
+              <RoutableTabs
+                mountOnEnter
+                defaultLocation={toClientPolicies({
+                  realm: realmName,
+                  tab: "profiles",
+                })}
               >
-                <ProfilesTab />
-              </Tab>
-              <Tab
-                id="policies"
-                data-testid="rs-policies-clientPolicies-tab"
-                aria-label={t("clientPoliciesSubTab")}
-                {...clientPoliciesPoliciesTab}
-                title={<TabTitleText>{t("policies")}</TabTitleText>}
-                tooltip={
-                  <Tooltip
-                    content={t("realm-settings:clientPoliciesPoliciesHelpText")}
-                  />
-                }
-              >
-                <PoliciesTab />
-              </Tab>
-            </RoutableTabs>
-          </Tab>
+                <Tab
+                  id="profiles"
+                  data-testid="rs-policies-clientProfiles-tab"
+                  aria-label={t("clientProfilesSubTab")}
+                  title={<TabTitleText>{t("profiles")}</TabTitleText>}
+                  tooltip={
+                    <Tooltip content={t("clientPoliciesProfilesHelpText")} />
+                  }
+                  {...clientPoliciesProfilesTab}
+                >
+                  <ProfilesTab />
+                </Tab>
+                <Tab
+                  id="policies"
+                  data-testid="rs-policies-clientPolicies-tab"
+                  aria-label={t("clientPoliciesSubTab")}
+                  {...clientPoliciesPoliciesTab}
+                  title={<TabTitleText>{t("policies")}</TabTitleText>}
+                  tooltip={
+                    <Tooltip content={t("clientPoliciesPoliciesHelpText")} />
+                  }
+                >
+                  <PoliciesTab />
+                </Tab>
+              </RoutableTabs>
+            </Tab>
+          )}
           {isFeatureEnabled(Feature.DeclarativeUserProfile) &&
             realm.attributes?.userProfileEnabled === "true" && (
               <Tab
-                title={
-                  <TabTitleText>{t("realm-settings:userProfile")}</TabTitleText>
-                }
+                title={<TabTitleText>{t("userProfile")}</TabTitleText>}
                 data-testid="rs-user-profile-tab"
                 {...userProfileTab}
               >

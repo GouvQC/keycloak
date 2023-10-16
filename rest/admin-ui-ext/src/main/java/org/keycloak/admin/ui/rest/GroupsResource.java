@@ -1,14 +1,15 @@
 package org.keycloak.admin.ui.rest;
 
-import static org.keycloak.models.utils.ModelToRepresentation.toRepresentation;
 
-import java.util.stream.Collectors;
+import java.util.Objects;
 import java.util.stream.Stream;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
@@ -21,7 +22,10 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.representations.idm.GroupRepresentation;
 import org.keycloak.services.resources.admin.permissions.AdminPermissionEvaluator;
-import org.keycloak.utils.StringUtil;
+import org.keycloak.services.resources.admin.permissions.GroupPermissionEvaluator;
+import org.keycloak.utils.GroupUtils;
+
+import static org.keycloak.models.utils.ModelToRepresentation.toRepresentation;
 
 public class GroupsResource {
     private final KeycloakSession session;
@@ -55,7 +59,8 @@ public class GroupsResource {
     public final Stream<GroupRepresentation> listGroups(@QueryParam("search") @DefaultValue("") final String search, @QueryParam("first")
     @DefaultValue("0") int first, @QueryParam("max") @DefaultValue("10") int max, @QueryParam("global") @DefaultValue("true") boolean global,
                                                         @QueryParam("exact") @DefaultValue("false") boolean exact) {
-        this.auth.groups().requireList();
+        GroupPermissionEvaluator groupsEvaluator = auth.groups();
+        groupsEvaluator.requireList();
         final Stream<GroupModel> stream;
         if (global) {
             stream = session.groups().searchForGroupByNameStream(realm, search.trim(), exact, first, max);
@@ -63,35 +68,68 @@ public class GroupsResource {
             stream = this.realm.getTopLevelGroupsStream().filter(g -> g.getName().contains(search)).skip(first).limit(max);
         }
 
-        return stream.map(g -> toGroupHierarchy(g, search, exact));
+        boolean canViewGlobal = groupsEvaluator.canView();
+        return stream.filter(group -> canViewGlobal || groupsEvaluator.canView(group))
+                .map(group -> GroupUtils.toGroupHierarchy(groupsEvaluator, group, search, exact, "".equals(search)));
     }
 
-    private GroupRepresentation toGroupHierarchy(GroupModel group, final String search, boolean exact) {
+    @GET
+    @Path("/subgroup")
+    @Consumes({"application/json"})
+    @Produces({"application/json"})
+    @Operation(
+            summary = "List all sub groups with fine grained authorisation and pagination",
+            description = "This endpoint returns a list of groups with fine grained authorisation"
+    )
+    @APIResponse(
+            responseCode = "200",
+            description = "",
+            content = {@Content(
+                    schema = @Schema(
+                            implementation = GroupRepresentation.class,
+                            type = SchemaType.ARRAY
+                    )
+            )}
+    )
+    public final Stream<GroupRepresentation> subgroups(@QueryParam("id") final String groupId, @QueryParam("search")
+    @DefaultValue("") final String search, @QueryParam("first") @DefaultValue("0") int first, @QueryParam("max") @DefaultValue("10") int max) {
+        GroupPermissionEvaluator groupsEvaluator = auth.groups();
+        groupsEvaluator.requireList();
+        GroupModel group = realm.getGroupById(groupId);
+        if (group == null) {
+            return Stream.empty();
+        }
+
+        return group.getSubGroupsStream().filter(g -> g.getName().contains(search))
+                .map(g -> GroupUtils.toGroupHierarchy(groupsEvaluator, g, search, false, true)).skip(first).limit(max);
+    }
+
+    @GET
+    @Path("{id}")
+    @Consumes({"application/json"})
+    @Produces({"application/json"})
+    @Operation(
+            summary = "Find a specific group with no subgroups",
+            description = "This endpoint returns a group by id with no subgroups"
+    )
+    @APIResponse(
+            responseCode = "200",
+            description = "",
+            content = {@Content(
+                    schema = @Schema(
+                            implementation = GroupRepresentation.class,
+                            type = SchemaType.OBJECT
+                    )
+            )}
+    )
+    public GroupRepresentation findGroupById(@PathParam("id") String id) {
+        GroupModel group = realm.getGroupById(id);
+        this.auth.groups().requireView(group);
+
         GroupRepresentation rep = toRepresentation(group, true);
+
         rep.setAccess(auth.groups().getAccess(group));
-        rep.setSubGroups(group.getSubGroupsStream().filter(g ->
-                groupMatchesSearchOrIsPathElement(
-                        g, search
-                )
-        ).map(subGroup -> {
-                    final GroupRepresentation subRep = ModelToRepresentation.toGroupHierarchy(
-                            subGroup, true, search, exact
-                    );
-                    subRep.setAccess(auth.groups().getAccess(subGroup));
-                    return subRep;
-                }
-        ).collect(Collectors.toList()));
 
         return rep;
-    }
-
-    private static boolean groupMatchesSearchOrIsPathElement(GroupModel group, String search) {
-        if (StringUtil.isBlank(search)) {
-            return true;
-        }
-        if (group.getName().contains(search)) {
-            return true;
-        }
-        return group.getSubGroupsStream().findAny().isPresent();
     }
 }

@@ -9,7 +9,7 @@ import useBreadcrumbs, {
 } from "use-react-router-breadcrumbs";
 
 import { useRealm } from "../../context/realm-context/RealmContext";
-import { routes } from "../../route-config";
+import { routes } from "../../routes";
 
 export const PageBreadCrumbs = () => {
   const { t } = useTranslation();
@@ -27,7 +27,7 @@ export const PageBreadCrumbs = () => {
       disableDefaults: true,
       excludePaths: ["/", `/${realm}`],
     }),
-    elementText
+    elementText,
   );
   return crumbs.length > 1 ? (
     <Breadcrumb>

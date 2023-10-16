@@ -32,11 +32,9 @@ import java.util.stream.Collectors;
 import javax.naming.directory.SearchControls;
 
 import org.jboss.logging.Logger;
-import org.keycloak.common.util.UriUtils;
+import org.keycloak.common.constants.KerberosConstants;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.component.ComponentValidationException;
-import org.keycloak.models.Constants;
-import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.LDAPConstants;
 import org.keycloak.models.ModelException;
 import org.keycloak.models.RealmModel;
@@ -139,6 +137,12 @@ public class LDAPUtils {
                 .getComponentsStream(ldapProvider.getModel().getId(), LDAPStorageMapper.class.getName())
                 .collect(Collectors.toList());
         ldapQuery.addMappers(mapperModels);
+
+        String kerberosPrincipalAttr = ldapProvider.getKerberosConfig().getKerberosPrincipalAttribute();
+        if (kerberosPrincipalAttr != null) {
+            ldapQuery.addReturningLdapAttribute(kerberosPrincipalAttr);
+            ldapQuery.addReturningReadOnlyLdapAttribute(kerberosPrincipalAttr);
+        }
 
         return ldapQuery;
     }
@@ -381,9 +385,16 @@ public class LDAPUtils {
         return userModelProperties;
     }
 
-    public static void setLDAPHostnameToKeycloakSession(KeycloakSession session,LDAPConfig ldapConfig) {
-        String hostname = UriUtils.getHost(ldapConfig.getConnectionUrl());
-        session.setAttribute(Constants.SSL_SERVER_HOST_ATTR, hostname);
-        log.tracef("Setting LDAP server hostname '%s' as KeycloakSession attribute", hostname);
+    public static String getDefaultKerberosUserPrincipalAttribute(String vendor) {
+        if (vendor != null) {
+            switch (vendor) {
+                case LDAPConstants.VENDOR_RHDS:
+                    return KerberosConstants.KERBEROS_PRINCIPAL_LDAP_ATTRIBUTE_KRB_PRINCIPAL_NAME;
+                case LDAPConstants.VENDOR_ACTIVE_DIRECTORY:
+                    return KerberosConstants.KERBEROS_PRINCIPAL_LDAP_ATTRIBUTE_USER_PRINCIPAL_NAME;
+            }
+        }
+
+        return KerberosConstants.KERBEROS_PRINCIPAL_LDAP_ATTRIBUTE_KRB5_PRINCIPAL_NAME;
     }
 }

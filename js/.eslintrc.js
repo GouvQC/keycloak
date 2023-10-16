@@ -25,6 +25,7 @@ module.exports = {
     "plugin:import/typescript",
     "plugin:react/recommended",
     "plugin:react/jsx-runtime",
+    "plugin:react-hooks/recommended",
     "plugin:@typescript-eslint/base",
     "plugin:@typescript-eslint/eslint-recommended",
     "plugin:prettier/recommended",
@@ -90,6 +91,7 @@ module.exports = {
       // TODO: Set these rules to "error" when issues have been resolved.
       rules: {
         "cypress/no-unnecessary-waiting": "warn",
+        "cypress/unsafe-to-chain-command": "warn",
         "mocha/max-top-level-suites": "off",
         "mocha/no-exclusive-tests": "error",
         "mocha/no-identical-title": "off",

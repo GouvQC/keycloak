@@ -18,9 +18,10 @@
 package org.keycloak.testsuite.util;
 
 import org.jboss.logging.Logger;
-import org.keycloak.testsuite.arquillian.HotRodStoreTestEnricher;
+import org.keycloak.testsuite.arquillian.HotRodContainerProvider;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
@@ -33,10 +34,10 @@ import java.util.regex.Pattern;
 public class InfinispanContainer extends GenericContainer<InfinispanContainer> {
 
     private final Logger LOG = Logger.getLogger(getClass());
-    private static final String PORT = System.getProperty("keycloak.connectionsHotRod.port", "11222");
-    private static String HOST = System.getProperty(HotRodStoreTestEnricher.HOT_ROD_STORE_HOST_PROPERTY);
-    private static final String USERNAME = System.getProperty("keycloak.connectionsHotRod.username", "admin");
-    private static final String PASSWORD = System.getProperty("keycloak.connectionsHotRod.password", "admin");
+    public static final String PORT = System.getProperty("keycloak.connectionsHotRod.port", "11222");
+    private static String HOST = System.getProperty(HotRodContainerProvider.HOT_ROD_STORE_HOST_PROPERTY);
+    public static final String USERNAME = System.getProperty("keycloak.connectionsHotRod.username", "admin");
+    public static final String PASSWORD = System.getProperty("keycloak.connectionsHotRod.password", "admin");
 
     private static final String ZERO_TO_255
             = "(\\d{1,2}|(0|1)\\"
@@ -50,10 +51,15 @@ public class InfinispanContainer extends GenericContainer<InfinispanContainer> {
     private static final Pattern IP_ADDRESS_PATTERN = Pattern.compile("listening on (" + IP_ADDRESS_REGEX + "):" + PORT);
 
     public InfinispanContainer() {
-        super("quay.io/infinispan/server:" + System.getProperty("infinispan.version"));
+        super(getImageName());
         withEnv("USER", USERNAME);
         withEnv("PASS", PASSWORD);
         withNetworkMode("host");
+
+        // the images in the 'infinispan-test' repository point to tags that are frequently refreshed, therefore, always pull them
+        if (getImageName().startsWith("quay.io/infinispan-test")) {
+            withImagePullPolicy(PullPolicy.alwaysPull());
+        }
         
         Path dir = Path.of(Path.of("").toAbsolutePath() + "/target/lib");
         String projectVersion = System.getProperty("project.version");
@@ -67,10 +73,23 @@ public class InfinispanContainer extends GenericContainer<InfinispanContainer> {
         MountableFile mountableFile = MountableFile.forHostPath(timeTaskPath, 0666);
         withCopyFileToContainer(mountableFile, "/opt/infinispan/server/lib/integration-arquillian-testsuite-providers.jar");
 
-        withStartupTimeout(Duration.ofMinutes(5));
+        //order of waitingFor and withStartupTimeout matters as the latter sets the timeout for WaitStrategy set by waitingFor
         waitingFor(Wait.forLogMessage(".*Infinispan Server.*started in.*", 1));
+        withStartupTimeout(Duration.ofMinutes(5));
     }
 
+    private static String getImageName() {
+        String version = System.getProperty("infinispan.version");
+        if (version.endsWith("-SNAPSHOT")) {
+            // for snapshot versions, '14.0.13-SNAPSHOT' translates to '14.0.x'
+            version = version.replaceAll("[0-9]*-SNAPSHOT$", "x");
+            return "quay.io/infinispan-test/server:" + version;
+        } else {
+            return "quay.io/infinispan/server:" + version;
+        }
+    }
+
+    @Override
     public String getHost() {
         if (HOST == null && this.isRunning()) {
             Matcher matcher = IP_ADDRESS_PATTERN.matcher(getLogs());
@@ -86,11 +105,6 @@ public class InfinispanContainer extends GenericContainer<InfinispanContainer> {
         }
 
         return HOST;
-    }
-
-    @Override
-    public void start() {
-        super.start();
     }
 
     public String getPort() {

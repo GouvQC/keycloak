@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { uniqBy } from "lodash-es";
+import type GroupRepresentation from "@keycloak/keycloak-admin-client/lib/defs/groupRepresentation";
+import type UserRepresentation from "@keycloak/keycloak-admin-client/lib/defs/userRepresentation";
 import {
   AlertVariant,
   Button,
@@ -11,25 +9,28 @@ import {
   KebabToggle,
   ToolbarItem,
 } from "@patternfly/react-core";
+import { uniqBy } from "lodash-es";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Link, useLocation } from "react-router-dom";
 
-import type GroupRepresentation from "@keycloak/keycloak-admin-client/lib/defs/groupRepresentation";
-import type UserRepresentation from "@keycloak/keycloak-admin-client/lib/defs/userRepresentation";
+import { adminClient } from "../admin-client";
+import { useAlerts } from "../components/alert/Alerts";
+import { GroupPath } from "../components/group/GroupPath";
+import { KeycloakSpinner } from "../components/keycloak-spinner/KeycloakSpinner";
+import { ListEmptyState } from "../components/list-empty-state/ListEmptyState";
 import {
   Action,
   KeycloakDataTable,
 } from "../components/table-toolbar/KeycloakDataTable";
-import { useAdminClient } from "../context/auth/AdminClient";
-import { useRealm } from "../context/realm-context/RealmContext";
-import { useAlerts } from "../components/alert/Alerts";
-import { emptyFormatter } from "../util";
-
-import { getLastId } from "./groupIdUtils";
-import { useSubGroups } from "./SubGroupsContext";
-import { MemberModal } from "./MembersModal";
-import { ListEmptyState } from "../components/list-empty-state/ListEmptyState";
-import { GroupPath } from "../components/group/GroupPath";
-import { toUser } from "../user/routes/User";
 import { useAccess } from "../context/access/Access";
+import { useRealm } from "../context/realm-context/RealmContext";
+import { toUser } from "../user/routes/User";
+import { emptyFormatter } from "../util";
+import { useFetch } from "../utils/useFetch";
+import { MemberModal } from "./MembersModal";
+import { useSubGroups } from "./SubGroupsContext";
+import { getLastId } from "./groupIdUtils";
 
 type MembersOf = UserRepresentation & {
   membership: GroupRepresentation[];
@@ -58,21 +59,27 @@ const UserDetailLink = (user: MembersOf) => {
 };
 
 export const Members = () => {
-  const { t } = useTranslation("groups");
-  const { adminClient } = useAdminClient();
+  const { t } = useTranslation();
 
   const { addAlert, addError } = useAlerts();
   const location = useLocation();
   const id = getLastId(location.pathname);
   const [includeSubGroup, setIncludeSubGroup] = useState(false);
-  const { currentGroup } = useSubGroups();
+  const { currentGroup: group } = useSubGroups();
+  const [currentGroup, setCurrentGroup] = useState<GroupRepresentation>();
   const [addMembers, setAddMembers] = useState(false);
   const [isKebabOpen, setIsKebabOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<UserRepresentation[]>([]);
   const { hasAccess } = useAccess();
 
+  useFetch(
+    () => adminClient.groups.findOne({ id: group()!.id! }),
+    setCurrentGroup,
+    [],
+  );
+
   const isManager =
-    hasAccess("manage-users") || currentGroup()!.access!.manageMembership;
+    hasAccess("manage-users") || currentGroup?.access!.manageMembership;
 
   const [key, setKey] = useState(0);
   const refresh = () => setKey(new Date().getTime());
@@ -98,22 +105,26 @@ export const Members = () => {
     });
 
     if (includeSubGroup) {
-      const subGroups = getSubGroups(currentGroup()?.subGroups!);
+      const subGroups = getSubGroups(currentGroup?.subGroups || []);
       for (const group of subGroups) {
         members = members.concat(
-          await adminClient.groups.listMembers({ id: group.id! })
+          await adminClient.groups.listMembers({ id: group.id! }),
         );
       }
       members = uniqBy(members, (member) => member.username);
     }
 
     const memberOfPromises = await Promise.all(
-      members.map((member) => getMembership(member.id!))
+      members.map((member) => getMembership(member.id!)),
     );
     return members.map((member: UserRepresentation, i) => {
       return { ...member, membership: memberOfPromises[i] };
     });
   };
+
+  if (!currentGroup) {
+    return <KeycloakSpinner />;
+  }
 
   return (
     <>
@@ -130,7 +141,7 @@ export const Members = () => {
         data-testid="members-table"
         key={`${id}${key}${includeSubGroup}`}
         loader={loader}
-        ariaLabelKey="groups:members"
+        ariaLabelKey="members"
         isPaginated
         canSelectAll
         onSelect={(rows) => setSelectedRows([...rows])}
@@ -176,16 +187,16 @@ export const Members = () => {
                               adminClient.users.delFromGroup({
                                 id: user.id!,
                                 groupId: id!,
-                              })
-                            )
+                              }),
+                            ),
                           );
                           setIsKebabOpen(false);
                           addAlert(
                             t("usersLeft", { count: selectedRows.length }),
-                            AlertVariant.success
+                            AlertVariant.success,
                           );
                         } catch (error) {
-                          addError("groups:usersLeftError", error);
+                          addError("usersLeftError", error);
                         }
 
                         refresh();
@@ -212,10 +223,10 @@ export const Members = () => {
                       });
                       addAlert(
                         t("usersLeft", { count: 1 }),
-                        AlertVariant.success
+                        AlertVariant.success,
                       );
                     } catch (error) {
-                      addError("groups:usersLeftError", error);
+                      addError("usersLeftError", error);
                     }
 
                     return true;
@@ -227,34 +238,34 @@ export const Members = () => {
         columns={[
           {
             name: "username",
-            displayKey: "common:name",
+            displayKey: "name",
             cellRenderer: UserDetailLink,
           },
           {
             name: "email",
-            displayKey: "groups:email",
+            displayKey: "email",
             cellFormatters: [emptyFormatter()],
           },
           {
             name: "firstName",
-            displayKey: "groups:firstName",
+            displayKey: "firstName",
             cellFormatters: [emptyFormatter()],
           },
           {
             name: "lastName",
-            displayKey: "groups:lastName",
+            displayKey: "lastName",
             cellFormatters: [emptyFormatter()],
           },
           {
             name: "membership",
-            displayKey: "groups:membership",
+            displayKey: "membership",
             cellRenderer: MemberOfRenderer,
           },
         ]}
         emptyState={
           <ListEmptyState
-            message={t("users:noUsersFound")}
-            instructions={isManager ? t("users:emptyInstructions") : undefined}
+            message={t("noUsersFound")}
+            instructions={isManager ? t("emptyInstructions") : undefined}
             primaryActionText={isManager ? t("addMember") : undefined}
             onPrimaryAction={() => setAddMembers(true)}
             secondaryActions={[

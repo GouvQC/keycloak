@@ -1,7 +1,6 @@
 import type IdentityProviderMapperRepresentation from "@keycloak/keycloak-admin-client/lib/defs/identityProviderMapperRepresentation";
 import type IdentityProviderRepresentation from "@keycloak/keycloak-admin-client/lib/defs/identityProviderRepresentation";
 import {
-  ActionGroup,
   AlertVariant,
   Button,
   ButtonVariant,
@@ -13,14 +12,17 @@ import {
   TabTitleText,
   ToolbarItem,
 } from "@patternfly/react-core";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 
+import { adminClient } from "../../admin-client";
 import { useAlerts } from "../../components/alert/Alerts";
 import { useConfirmDialog } from "../../components/confirm-dialog/ConfirmDialog";
-import { FormAccess } from "../../components/form-access/FormAccess";
+import { DynamicComponents } from "../../components/dynamic/DynamicComponents";
+import { FixedButtonsGroup } from "../../components/form/FixedButtonGroup";
+import { FormAccess } from "../../components/form/FormAccess";
 import { KeycloakSpinner } from "../../components/keycloak-spinner/KeycloakSpinner";
 import { ListEmptyState } from "../../components/list-empty-state/ListEmptyState";
 import { PermissionsTab } from "../../components/permission-tab/PermissionTab";
@@ -34,12 +36,12 @@ import {
   KeycloakDataTable,
 } from "../../components/table-toolbar/KeycloakDataTable";
 import { ViewHeader } from "../../components/view-header/ViewHeader";
-import { useAdminClient, useFetch } from "../../context/auth/AdminClient";
 import { useRealm } from "../../context/realm-context/RealmContext";
 import { useServerInfo } from "../../context/server-info/ServerInfoProvider";
 import { toUpperCase } from "../../util";
+import { useFetch } from "../../utils/useFetch";
+import useIsFeatureEnabled, { Feature } from "../../utils/useIsFeatureEnabled";
 import { useParams } from "../../utils/useParams";
-import { ExtendedFieldsForm } from "../component/ExtendedFieldsForm";
 import { toIdentityProviderAddMapper } from "../routes/AddMapper";
 import { toIdentityProviderEditMapper } from "../routes/EditMapper";
 import {
@@ -74,26 +76,25 @@ type IdPWithMapperAttributes = IdentityProviderMapperRepresentation & {
 };
 
 const Header = ({ onChange, value, save, toggleDeleteDialog }: HeaderProps) => {
-  const { t } = useTranslation("identity-providers");
+  const { t } = useTranslation();
   const { alias: displayName } = useParams<{ alias: string }>();
-  const { adminClient } = useAdminClient();
   const [provider, setProvider] = useState<IdentityProviderRepresentation>();
 
   useFetch(
     () => adminClient.identityProviders.findOne({ alias: displayName }),
     (fetchedProvider) => {
       if (!fetchedProvider) {
-        throw new Error(t("common:notFound"));
+        throw new Error(t("notFound"));
       }
       setProvider(fetchedProvider);
     },
-    []
+    [],
   );
 
   const [toggleDisableDialog, DisableConfirm] = useConfirmDialog({
-    titleKey: "identity-providers:disableProvider",
-    messageKey: t("disableConfirm", { provider: displayName }),
-    continueButtonLabel: "common:disable",
+    titleKey: "disableProvider",
+    messageKey: t("disableConfirmIdentityProvider", { provider: displayName }),
+    continueButtonLabel: "disable",
     onConfirm: () => {
       onChange(!value);
       save();
@@ -109,12 +110,12 @@ const Header = ({ onChange, value, save, toggleDeleteDialog }: HeaderProps) => {
             ? provider.displayName
               ? provider.displayName
               : provider.providerId!
-            : ""
+            : "",
         )}
         divider={false}
         dropdownItems={[
           <DropdownItem key="delete" onClick={() => toggleDeleteDialog()}>
-            {t("common:delete")}
+            {t("delete")}
           </DropdownItem>,
         ]}
         isEnabled={value}
@@ -154,28 +155,43 @@ const MapperLink = ({ name, mapperId, provider }: MapperLinkProps) => {
 };
 
 export default function DetailSettings() {
-  const { t } = useTranslation("identity-providers");
+  const { t } = useTranslation();
   const { alias, providerId } = useParams<IdentityProviderParams>();
-
+  const isFeatureEnabled = useIsFeatureEnabled();
   const form = useForm<IdentityProviderRepresentation>();
   const { handleSubmit, getValues, reset } = form;
   const [provider, setProvider] = useState<IdentityProviderRepresentation>();
   const [selectedMapper, setSelectedMapper] =
     useState<IdPWithMapperAttributes>();
+  const serverInfo = useServerInfo();
+  const providerInfo = useMemo(() => {
+    const namespaces = [
+      "org.keycloak.broker.social.SocialIdentityProvider",
+      "org.keycloak.broker.provider.IdentityProvider",
+    ];
 
-  const { adminClient } = useAdminClient();
+    for (const namespace of namespaces) {
+      const social = serverInfo.componentTypes?.[namespace]?.find(
+        ({ id }) => id === providerId,
+      );
+
+      if (social) {
+        return social;
+      }
+    }
+  }, [serverInfo, providerId]);
+
   const { addAlert, addError } = useAlerts();
   const navigate = useNavigate();
   const { realm } = useRealm();
   const [key, setKey] = useState(0);
-  const { profileInfo } = useServerInfo();
   const refresh = () => setKey(key + 1);
 
   useFetch(
     () => adminClient.identityProviders.findOne({ alias }),
     (fetchedProvider) => {
       if (!fetchedProvider) {
-        throw new Error(t("common:notFound"));
+        throw new Error(t("notFound"));
       }
 
       reset(fetchedProvider);
@@ -184,18 +200,18 @@ export default function DetailSettings() {
       if (fetchedProvider.config!.authnContextClassRefs) {
         form.setValue(
           "config.authnContextClassRefs",
-          JSON.parse(fetchedProvider.config?.authnContextClassRefs)
+          JSON.parse(fetchedProvider.config?.authnContextClassRefs),
         );
       }
 
       if (fetchedProvider.config!.authnContextDeclRefs) {
         form.setValue(
           "config.authnContextDeclRefs",
-          JSON.parse(fetchedProvider.config?.authnContextDeclRefs)
+          JSON.parse(fetchedProvider.config?.authnContextDeclRefs),
         );
       }
     },
-    []
+    [],
   );
 
   const toTab = (tab: IdentityProviderTab) =>
@@ -216,11 +232,11 @@ export default function DetailSettings() {
     const p = savedProvider || getValues();
     if (p.config?.authnContextClassRefs)
       p.config.authnContextClassRefs = JSON.stringify(
-        p.config.authnContextClassRefs
+        p.config.authnContextClassRefs,
       );
     if (p.config?.authnContextDeclRefs)
       p.config.authnContextDeclRefs = JSON.stringify(
-        p.config.authnContextDeclRefs
+        p.config.authnContextDeclRefs,
       );
 
     try {
@@ -231,36 +247,36 @@ export default function DetailSettings() {
           config: { ...provider?.config, ...p.config },
           alias,
           providerId,
-        }
+        },
       );
-      addAlert(t("updateSuccess"), AlertVariant.success);
+      addAlert(t("updateSuccessIdentityProvider"), AlertVariant.success);
     } catch (error) {
-      addError("identity-providers:updateError", error);
+      addError("updateErrorIdentityProvider", error);
     }
   };
 
   const [toggleDeleteDialog, DeleteConfirm] = useConfirmDialog({
-    titleKey: "identity-providers:deleteProvider",
-    messageKey: t("identity-providers:deleteConfirm", { provider: alias }),
-    continueButtonLabel: "common:delete",
+    titleKey: "deleteProvider",
+    messageKey: t("deleteConfirmIdentityProvider", { provider: alias }),
+    continueButtonLabel: "delete",
     continueButtonVariant: ButtonVariant.danger,
     onConfirm: async () => {
       try {
         await adminClient.identityProviders.del({ alias: alias });
-        addAlert(t("deletedSuccess"), AlertVariant.success);
+        addAlert(t("deletedSuccessIdentityProvider"), AlertVariant.success);
         navigate(toIdentityProviders({ realm }));
       } catch (error) {
-        addError("identity-providers:deleteErrorError", error);
+        addError("deleteErrorIdentityProvider", error);
       }
     },
   });
 
   const [toggleDeleteMapperDialog, DeleteMapperConfirm] = useConfirmDialog({
-    titleKey: "identity-providers:deleteProviderMapper",
-    messageKey: t("identity-providers:deleteMapperConfirm", {
+    titleKey: "deleteProviderMapper",
+    messageKey: t("deleteMapperConfirm", {
       mapper: selectedMapper?.name,
     }),
-    continueButtonLabel: "common:delete",
+    continueButtonLabel: "delete",
     continueButtonVariant: ButtonVariant.danger,
     onConfirm: async () => {
       try {
@@ -271,10 +287,10 @@ export default function DetailSettings() {
         addAlert(t("deleteMapperSuccess"), AlertVariant.success);
         refresh();
         navigate(
-          toIdentityProvider({ providerId, alias, tab: "mappers", realm })
+          toIdentityProvider({ providerId, alias, tab: "mappers", realm }),
         );
       } catch (error) {
-        addError("identity-providers:deleteErrorError", error);
+        addError("deleteErrorIdentityProvider", error);
       }
     },
   });
@@ -295,7 +311,7 @@ export default function DetailSettings() {
     const components = loaderMappers.map((loaderMapper) => {
       const mapperType = Object.values(loaderMapperTypes).find(
         (loaderMapperType) =>
-          loaderMapper.identityProviderMapper! === loaderMapperType.id!
+          loaderMapper.identityProviderMapper! === loaderMapperType.id!,
       );
 
       const result: IdPWithMapperAttributes = {
@@ -323,11 +339,16 @@ export default function DetailSettings() {
           {!isOIDC && !isSAML && (
             <>
               <GeneralSettings create={false} id={alias} />
-              <ExtendedFieldsForm providerId={alias} />
+              {providerInfo && (
+                <DynamicComponents
+                  stringify
+                  properties={providerInfo.properties}
+                />
+              )}
             </>
           )}
-          {isOIDC && <OIDCGeneralSettings id={alias} />}
-          {isSAML && <SamlGeneralSettings id={alias} isAliasReadonly />}
+          {isOIDC && <OIDCGeneralSettings />}
+          {isSAML && <SamlGeneralSettings isAliasReadonly />}
         </FormAccess>
       ),
     },
@@ -373,20 +394,7 @@ export default function DetailSettings() {
         >
           <AdvancedSettings isOIDC={isOIDC!} isSAML={isSAML!} />
 
-          <ActionGroup className="keycloak__form_actions">
-            <Button data-testid={"save"} type="submit">
-              {t("common:save")}
-            </Button>
-            <Button
-              data-testid={"revert"}
-              variant="link"
-              onClick={() => {
-                reset();
-              }}
-            >
-              {t("common:revert")}
-            </Button>
-          </ActionGroup>
+          <FixedButtonsGroup name="idp-details" isSubmit reset={reset} />
         </FormAccess>
       ),
     },
@@ -414,7 +422,7 @@ export default function DetailSettings() {
         <RoutableTabs isBox defaultLocation={toTab("settings")}>
           <Tab
             id="settings"
-            title={<TabTitleText>{t("common:settings")}</TabTitleText>}
+            title={<TabTitleText>{t("settings")}</TabTitleText>}
             {...settingsTab}
           >
             <ScrollForm className="pf-u-px-lg" sections={sections} />
@@ -422,15 +430,15 @@ export default function DetailSettings() {
           <Tab
             id="mappers"
             data-testid="mappers-tab"
-            title={<TabTitleText>{t("common:mappers")}</TabTitleText>}
+            title={<TabTitleText>{t("mappers")}</TabTitleText>}
             {...mappersTab}
           >
             <KeycloakDataTable
               emptyState={
                 <ListEmptyState
-                  message={t("identity-providers:noMappers")}
-                  instructions={t("identity-providers:noMappersInstructions")}
-                  primaryActionText={t("identity-providers:addMapper")}
+                  message={t("noMappers")}
+                  instructions={t("noMappersInstructions")}
+                  primaryActionText={t("addMapper")}
                   onPrimaryAction={() =>
                     navigate(
                       toIdentityProviderAddMapper({
@@ -438,15 +446,15 @@ export default function DetailSettings() {
                         alias: alias!,
                         providerId: provider.providerId!,
                         tab: "mappers",
-                      })
+                      }),
                     )
                   }
                 />
               }
               loader={loader}
               key={key}
-              ariaLabelKey="identity-providers:mappersList"
-              searchPlaceholderKey="identity-providers:searchForMapper"
+              ariaLabelKey="mappersList"
+              searchPlaceholderKey="searchForMapper"
               toolbarItem={
                 <ToolbarItem>
                   <Button
@@ -471,23 +479,23 @@ export default function DetailSettings() {
               columns={[
                 {
                   name: "name",
-                  displayKey: "common:name",
+                  displayKey: "name",
                   cellRenderer: (row) => (
                     <MapperLink {...row} provider={provider} />
                   ),
                 },
                 {
                   name: "category",
-                  displayKey: "common:category",
+                  displayKey: "category",
                 },
                 {
                   name: "type",
-                  displayKey: "common:type",
+                  displayKey: "type",
                 },
               ]}
               actions={[
                 {
-                  title: t("common:delete"),
+                  title: t("delete"),
                   onRowClick: (mapper) => {
                     setSelectedMapper(mapper);
                     toggleDeleteMapperDialog();
@@ -496,13 +504,11 @@ export default function DetailSettings() {
               ]}
             />
           </Tab>
-          {!profileInfo?.disabledFeatures?.includes(
-            "ADMIN_FINE_GRAINED_AUTHZ"
-          ) && (
+          {isFeatureEnabled(Feature.AdminFineGrainedAuthz) && (
             <Tab
               id="permissions"
               data-testid="permissionsTab"
-              title={<TabTitleText>{t("common:permissions")}</TabTitleText>}
+              title={<TabTitleText>{t("permissions")}</TabTitleText>}
               {...permissionsTab}
             >
               <PermissionsTab id={alias} type="identityProviders" />

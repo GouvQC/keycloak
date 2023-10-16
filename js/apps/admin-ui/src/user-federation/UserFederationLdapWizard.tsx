@@ -1,28 +1,26 @@
+import type ComponentRepresentation from "@keycloak/keycloak-admin-client/lib/defs/componentRepresentation";
 import {
   Button,
   Wizard,
   WizardContextConsumer,
   WizardFooter,
 } from "@patternfly/react-core";
+import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 
-import { LdapSettingsGeneral } from "./ldap/LdapSettingsGeneral";
+import useIsFeatureEnabled, { Feature } from "../utils/useIsFeatureEnabled";
+import { LdapSettingsAdvanced } from "./ldap/LdapSettingsAdvanced";
 import { LdapSettingsConnection } from "./ldap/LdapSettingsConnection";
+import { LdapSettingsGeneral } from "./ldap/LdapSettingsGeneral";
+import { LdapSettingsKerberosIntegration } from "./ldap/LdapSettingsKerberosIntegration";
 import { LdapSettingsSearching } from "./ldap/LdapSettingsSearching";
 import { LdapSettingsSynchronization } from "./ldap/LdapSettingsSynchronization";
-import { LdapSettingsKerberosIntegration } from "./ldap/LdapSettingsKerberosIntegration";
 import { SettingsCache } from "./shared/SettingsCache";
-import { LdapSettingsAdvanced } from "./ldap/LdapSettingsAdvanced";
-import { useTranslation } from "react-i18next";
-import type ComponentRepresentation from "@keycloak/keycloak-admin-client/lib/defs/componentRepresentation";
-
-import { useForm } from "react-hook-form";
-import { useServerInfo } from "../context/server-info/ServerInfoProvider";
 
 export const UserFederationLdapWizard = () => {
   const form = useForm<ComponentRepresentation>();
-  const { t } = useTranslation("user-federation");
-  const kerberosDisabled =
-    useServerInfo().profileInfo?.disabledFeatures?.includes("KERBEROS");
+  const { t } = useTranslation();
+  const isFeatureEnabled = useIsFeatureEnabled();
 
   const steps = [
     {
@@ -79,7 +77,7 @@ export const UserFederationLdapWizard = () => {
           showSectionDescription
         />
       ),
-      isDisabled: kerberosDisabled,
+      isDisabled: !isFeatureEnabled(Feature.Kerberos),
     },
     {
       name: t("cacheSettings"),
@@ -110,17 +108,17 @@ export const UserFederationLdapWizard = () => {
             return (
               <>
                 <Button variant="primary" type="submit" onClick={onNext}>
-                  {t("common:next")}
+                  {t("next")}
                 </Button>
                 <Button
                   variant="secondary"
                   onClick={onBack}
                   className="pf-m-disabled"
                 >
-                  {t("common:back")}
+                  {t("back")}
                 </Button>
                 <Button variant="link" onClick={onClose}>
-                  {t("common:cancel")}
+                  {t("cancel")}
                 </Button>
               </>
             );
@@ -133,13 +131,13 @@ export const UserFederationLdapWizard = () => {
             return (
               <>
                 <Button variant="primary" type="submit" onClick={onNext}>
-                  {t("common:next")}
+                  {t("next")}
                 </Button>
                 <Button variant="secondary" onClick={onBack}>
-                  {t("common:back")}
+                  {t("back")}
                 </Button>
                 <Button variant="link" onClick={onClose}>
-                  {t("common:cancel")}
+                  {t("cancel")}
                 </Button>
               </>
             );
@@ -149,12 +147,12 @@ export const UserFederationLdapWizard = () => {
             return (
               <>
                 {/* TODO: close the wizard and finish */}
-                <Button>{t("common:finish")}</Button>
+                <Button>{t("finish")}</Button>
                 <Button variant="secondary" onClick={onBack}>
-                  {t("common:back")}
+                  {t("back")}
                 </Button>
                 <Button variant="link" onClick={onClose}>
-                  {t("common:cancel")}
+                  {t("cancel")}
                 </Button>
               </>
             );
@@ -167,11 +165,9 @@ export const UserFederationLdapWizard = () => {
                 Back
               </Button>
               {/* TODO: validate last step and finish */}
-              <Button variant="link">
-                {t("common:skipCustomizationAndFinish")}
-              </Button>
+              <Button variant="link">{t("skipCustomizationAndFinish")}</Button>
               <Button variant="link" onClick={onClose}>
-                {t("common:cancel")}
+                {t("cancel")}
               </Button>
             </>
           );

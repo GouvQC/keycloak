@@ -57,7 +57,7 @@ export const KeyForm = ({
   hasPem = false,
   useFile = false,
 }: KeyFormProps) => {
-  const { t } = useTranslation("clients");
+  const { t } = useTranslation();
 
   const [filename, setFilename] = useState<string>();
   const [openArchiveFormat, setOpenArchiveFormat] = useState(false);
@@ -68,7 +68,7 @@ export const KeyForm = ({
   const { cryptoInfo } = useServerInfo();
   const supportedKeystoreTypes = [
     ...(cryptoInfo?.supportedKeystoreTypes ?? []),
-    ...(hasPem ? CERT_PEM : []),
+    ...(hasPem ? [CERT_PEM] : []),
   ];
 
   return (
@@ -77,8 +77,8 @@ export const KeyForm = ({
         label={t("archiveFormat")}
         labelIcon={
           <HelpItem
-            helpText={t("clients-help:archiveFormat")}
-            fieldLabelId="clients:archiveFormat"
+            helpText={t("archiveFormatHelp")}
+            fieldLabelId="archiveFormat"
           />
         }
         fieldId="archiveFormat"
@@ -99,6 +99,7 @@ export const KeyForm = ({
               variant={SelectVariant.single}
               aria-label={t("archiveFormat")}
               isOpen={openArchiveFormat}
+              menuAppendTo="parent"
             >
               {supportedKeystoreTypes.map((option) => (
                 <SelectOption
@@ -116,8 +117,8 @@ export const KeyForm = ({
           label={t("importFile")}
           labelIcon={
             <HelpItem
-              helpText={t("clients-help:importFile")}
-              fieldLabelId="clients:importFile"
+              helpText={t("importFileHelp")}
+              fieldLabelId="importFile"
             />
           }
           fieldId="importFile"
@@ -153,7 +154,7 @@ export const GenerateKeyDialog = ({
   save,
   toggleDialog,
 }: GenerateKeyDialogProps) => {
-  const { t } = useTranslation("clients");
+  const { t } = useTranslation();
   const form = useForm<KeyStoreConfig>({
     defaultValues: { keyAlias: clientId },
     mode: "onChange",
@@ -194,12 +195,12 @@ export const GenerateKeyDialog = ({
             toggleDialog();
           }}
         >
-          {t("common:cancel")}
+          {t("cancel")}
         </Button>,
       ]}
     >
       <TextContent>
-        <Text>{t("clients-help:generateKeysDescription")}</Text>
+        <Text>{t("generateKeysDescription")}</Text>
       </TextContent>
       <FormProvider {...form}>
         <KeyForm />

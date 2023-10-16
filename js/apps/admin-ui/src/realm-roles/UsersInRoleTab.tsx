@@ -2,12 +2,12 @@ import { Button, PageSection, Popover } from "@patternfly/react-core";
 import { QuestionCircleIcon } from "@patternfly/react-icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-
-import type { ClientRoleParams } from "../clients/routes/ClientRole";
 import { useHelp } from "ui-shared";
+
+import { adminClient } from "../admin-client";
+import type { ClientRoleParams } from "../clients/routes/ClientRole";
 import { ListEmptyState } from "../components/list-empty-state/ListEmptyState";
 import { KeycloakDataTable } from "../components/table-toolbar/KeycloakDataTable";
-import { useAdminClient } from "../context/auth/AdminClient";
 import { useRealm } from "../context/realm-context/RealmContext";
 import { emptyFormatter, upperCaseFormatter } from "../util";
 import { useParams } from "../utils/useParams";
@@ -16,15 +16,13 @@ export const UsersInRoleTab = () => {
   const navigate = useNavigate();
   const { realm } = useRealm();
 
-  const { t } = useTranslation("roles");
+  const { t } = useTranslation();
   const { id, clientId } = useParams<ClientRoleParams>();
-
-  const { adminClient } = useAdminClient();
 
   const loader = async (first?: number, max?: number) => {
     const role = await adminClient.roles.findOneById({ id: id });
     if (!role) {
-      throw new Error(t("common:notFound"));
+      throw new Error(t("notFound"));
     }
 
     if (role.clientRole) {
@@ -50,7 +48,7 @@ export const UsersInRoleTab = () => {
       <KeycloakDataTable
         isPaginated
         loader={loader}
-        ariaLabelKey="roles:roleList"
+        ariaLabelKey="roleList"
         searchPlaceholderKey=""
         toolbarItem={
           enabled && (
@@ -59,13 +57,13 @@ export const UsersInRoleTab = () => {
               position="bottom"
               bodyContent={
                 <div>
-                  {t("roles:whoWillAppearPopoverText")}
+                  {t("whoWillAppearPopoverTextRoles")}
                   <Button
                     className="kc-groups-link"
                     variant="link"
                     onClick={() => navigate(`/${realm}/groups`)}
                   >
-                    {t("common:groups")}
+                    {t("groups")}
                   </Button>
                   {t("or")}
                   <Button
@@ -77,7 +75,7 @@ export const UsersInRoleTab = () => {
                   </Button>
                 </div>
               }
-              footerContent={t("roles:whoWillAppearPopoverFooterText")}
+              footerContent={t("whoWillAppearPopoverFooterText")}
             >
               <Button
                 variant="link"
@@ -85,7 +83,7 @@ export const UsersInRoleTab = () => {
                 key="who-will-appear-button"
                 icon={<QuestionCircleIcon />}
               >
-                {t("roles:whoWillAppearLinkText")}
+                {t("whoWillAppearLinkTextRoles")}
               </Button>
             </Popover>
           )
@@ -102,7 +100,7 @@ export const UsersInRoleTab = () => {
                   variant="link"
                   onClick={() => navigate(`/${realm}/groups`)}
                 >
-                  {t("common:groups")}
+                  {t("groups")}
                 </Button>
                 {t("or")}
                 <Button
@@ -120,22 +118,22 @@ export const UsersInRoleTab = () => {
         columns={[
           {
             name: "username",
-            displayKey: "roles:userName",
+            displayKey: "userName",
             cellFormatters: [emptyFormatter()],
           },
           {
             name: "email",
-            displayKey: "roles:email",
+            displayKey: "email",
             cellFormatters: [emptyFormatter()],
           },
           {
             name: "lastName",
-            displayKey: "roles:lastName",
+            displayKey: "lastName",
             cellFormatters: [emptyFormatter()],
           },
           {
             name: "firstName",
-            displayKey: "roles:firstName",
+            displayKey: "firstName",
             cellFormatters: [upperCaseFormatter(), emptyFormatter()],
           },
         ]}

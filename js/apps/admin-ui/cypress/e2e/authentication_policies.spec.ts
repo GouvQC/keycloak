@@ -23,7 +23,7 @@ describe("Policies", () => {
       otpPoliciesPage.checkSupportedApplications(
         "FreeOTP",
         "Google Authenticator",
-        "Microsoft Authenticator"
+        "Microsoft Authenticator",
       );
       otpPoliciesPage.setPolicyType("hotp").increaseInitialCounter().save();
       masthead.checkNotificationMessage("OTP policy successfully updated");
@@ -48,7 +48,7 @@ describe("Policies", () => {
       });
       webauthnPage.webAuthnPolicyCreateTimeout(30).save();
       masthead.checkNotificationMessage(
-        "Updated webauthn policies successfully"
+        "Updated webauthn policies successfully",
       );
     });
 
@@ -61,25 +61,12 @@ describe("Policies", () => {
             webAuthnPolicyRequireResidentKey: "Yes",
             webAuthnPolicyUserVerificationRequirement: "Preferred",
           },
-          true
+          true,
         )
         .save();
       masthead.checkNotificationMessage(
-        "Updated webauthn policies successfully"
+        "Updated webauthn policies successfully",
       );
-    });
-  });
-
-  describe("Accessibility tests for authentication policies", () => {
-    beforeEach(() => {
-      loginPage.logIn();
-      keycloakBefore();
-      sidebarPage.goToAuthentication();
-      cy.injectAxe();
-    });
-
-    it("Check a11y violations on load/ authentication policies", () => {
-      cy.checkA11y();
     });
   });
 });

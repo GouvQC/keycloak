@@ -1,3 +1,4 @@
+import { v4 as uuid } from "uuid";
 import { keycloakBefore } from "../support/util/keycloak_hooks";
 import LoginPage from "../support/pages/LoginPage";
 import SidebarPage from "../support/pages/admin-ui/SidebarPage";
@@ -11,13 +12,16 @@ import PasswordPolicies from "../support/pages/admin-ui/manage/authentication/Pa
 import ModalUtils from "../support/util/ModalUtils";
 import CommonPage from "../support/pages/CommonPage";
 import BindFlowModal from "../support/pages/admin-ui/manage/authentication/BindFlowModal";
+import OTPPolicies from "../support/pages/admin-ui/manage/authentication/OTPPolicies";
+import WebAuthnPolicies from "../support/pages/admin-ui/manage/authentication/WebAuthnPolicies";
+import CIBAPolicyPage from "../support/pages/admin-ui/manage/authentication/CIBAPolicyPage";
 
 const loginPage = new LoginPage();
 const masthead = new Masthead();
 const sidebarPage = new SidebarPage();
 const commonPage = new CommonPage();
 const listingPage = new ListingPage();
-const realmName = "test" + crypto.randomUUID();
+const realmName = "test" + uuid();
 
 describe("Authentication test", () => {
   const detailPage = new FlowDetails();
@@ -64,7 +68,7 @@ describe("Authentication test", () => {
     listingPage.clickRowDetails("Browser").clickDetailMenu("Duplicate");
     duplicateFlowModal.fill("browser");
     masthead.checkNotificationMessage(
-      "Could not duplicate flow: New flow alias name already exists"
+      "Could not duplicate flow: New flow alias name already exists",
     );
   });
 
@@ -81,7 +85,7 @@ describe("Authentication test", () => {
     detailPage.expectPriorityChange(fromRow, () => {
       detailPage.moveRowTo(
         fromRow,
-        `[data-testid="Identity Provider Redirector"]`
+        `[data-testid="Identity Provider Redirector"]`,
       );
     });
   });
@@ -120,7 +124,7 @@ describe("Authentication test", () => {
     listingPage.goToItemDetails("Copy of browser");
     detailPage.addExecution(
       "Copy of browser forms",
-      "reset-credentials-choose-user"
+      "reset-credentials-choose-user",
     );
 
     masthead.checkNotificationMessage("Flow successfully updated");
@@ -131,7 +135,7 @@ describe("Authentication test", () => {
     listingPage.goToItemDetails("Copy of browser");
     detailPage.addCondition(
       "Copy of browser Browser - Conditional OTP",
-      "conditional-user-role"
+      "conditional-user-role",
     );
 
     masthead.checkNotificationMessage("Flow successfully updated");
@@ -142,7 +146,7 @@ describe("Authentication test", () => {
     listingPage.goToItemDetails("Copy of browser");
     detailPage.addSubFlow(
       "Copy of browser Browser - Conditional OTP",
-      flowName
+      flowName,
     );
 
     masthead.checkNotificationMessage("Flow successfully updated");
@@ -169,7 +173,7 @@ describe("Authentication test", () => {
     detailPage.fillCreateForm(
       flowName,
       "Some nice description about what this flow does so that we can use it later",
-      "Client flow"
+      "Client flow",
     );
     masthead.checkNotificationMessage("Flow created");
     detailPage.addSubFlowToEmpty(flowName, "EmptySubFlow");
@@ -256,6 +260,12 @@ describe("Password policies tab", () => {
 
 describe("Accessibility tests for authentication", () => {
   const realmName = "a11y-realm";
+  const flowName = "SubFlow";
+  const requiredActionsPage = new RequiredActions();
+  const passwordPoliciesPage = new PasswordPolicies();
+  const otpPoliciesPage = new OTPPolicies();
+  const webAuthnPolicies = new WebAuthnPolicies();
+  const detailPage = new FlowDetails();
 
   before(() => adminClient.createRealm(realmName));
   after(() => adminClient.deleteRealm(realmName));
@@ -268,7 +278,63 @@ describe("Accessibility tests for authentication", () => {
     cy.injectAxe();
   });
 
-  it("Check a11y violations on load/ authentication", () => {
+  it("Check a11y violations on load/ authentication tab/ flows sub tab", () => {
+    cy.checkA11y();
+  });
+
+  it("Check a11y violations on load/ authentication tab/ flows sub tab/ creating flow form", () => {
+    listingPage.goToCreateItem();
+    cy.checkA11y();
+    cy.findByTestId("cancel").click();
+  });
+
+  it("Check a11y violations on load/ authentication tab/ flows sub tab/ creating flow", () => {
+    listingPage.goToCreateItem();
+    detailPage.fillCreateForm(
+      flowName,
+      "Some nice description about what this flow does",
+      "Client flow",
+    );
+    cy.checkA11y();
+  });
+
+  it("Check a11y violations on load/ authentication tab/ flows sub tab/ creating flow form", () => {
+    listingPage.goToItemDetails("reset credentials");
+    cy.checkA11y();
+  });
+
+  it("Check a11y violations on load/ authentication tab/ required actions sub tab", () => {
+    requiredActionsPage.goToTab();
+    cy.checkA11y();
+  });
+
+  it("Check a11y violations on load/ policies tab/ password policy sub tab", () => {
+    passwordPoliciesPage.goToTab();
+    cy.checkA11y();
+  });
+
+  it("Check a11y violations on load/ authentication tab/ policies sub tab/ adding policy", () => {
+    passwordPoliciesPage.goToTab().addPolicy("Not Recently Used");
+    cy.checkA11y();
+  });
+
+  it("Check a11y violations on load/ policies tab/ otp policy sub tab", () => {
+    otpPoliciesPage.goToTab();
+    cy.checkA11y();
+  });
+
+  it("Check a11y violations on load/ policies tab/ WebAuthn Policies sub tab", () => {
+    webAuthnPolicies.goToTab();
+    cy.checkA11y();
+  });
+
+  it("Check a11y violations on load/ policies tab/ WebAuthn Passwordless Policies sub tab", () => {
+    webAuthnPolicies.goToPasswordlessTab();
+    cy.checkA11y();
+  });
+
+  it("Check a11y violations on load/ policies tab/ CIBA Policy sub tab", () => {
+    CIBAPolicyPage.goToTab();
     cy.checkA11y();
   });
 });

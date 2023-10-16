@@ -89,6 +89,11 @@ export default class GroupPage extends PageObject {
     return this;
   }
 
+  public showDeleteSelectedGroupsDialog() {
+    this.clickToolbarAction("Delete");
+    return this;
+  }
+
   public deleteGroupItem(groupName: string, confirmModal = true) {
     listingPage.deleteItem(groupName);
     if (confirmModal) {
@@ -99,13 +104,13 @@ export default class GroupPage extends PageObject {
 
   public moveGroupItemAction(
     groupName: string,
-    destinationGroupName: string[]
+    destinationGroupName: string[],
   ) {
     listingPage.clickRowDetails(groupName);
     listingPage.clickDetailMenu("Move to");
     moveGroupModal
       .assertModalVisible(true)
-      .assertModalTitleEqual(`Move ${groupName} to root`);
+      .assertModalTitleEqual(`Move ${groupName} to Root`);
     if (!destinationGroupName.includes("root")) {
       for (const destination of destinationGroupName) {
         moveGroupModal
@@ -171,19 +176,25 @@ export default class GroupPage extends PageObject {
 
   public assertNotificationCouldNotCreateGroupWithEmptyName() {
     masthead.checkNotificationMessage(
-      "Could not create group Group name is missing"
+      "Could not create group Group name is missing",
     );
     return this;
   }
 
   public assertNotificationCouldNotCreateGroupWithDuplicatedName(
-    groupName: string
+    groupName: string,
   ) {
     masthead.checkNotificationMessage(
       "Could not create group Top level group named '" +
         groupName +
-        "' already exists."
+        "' already exists.",
     );
+    return this;
+  }
+
+  public goToGroupActions(groupName: string) {
+    listingPage.clickRowDetails(groupName);
+
     return this;
   }
 }

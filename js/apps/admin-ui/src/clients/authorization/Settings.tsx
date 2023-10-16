@@ -1,6 +1,3 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Controller, FormProvider, useForm } from "react-hook-form";
 import {
   AlertVariant,
   Button,
@@ -10,17 +7,21 @@ import {
   Radio,
   Switch,
 } from "@patternfly/react-core";
-
-import type ResourceServerRepresentation from "@keycloak/keycloak-admin-client/lib/defs/resourceServerRepresentation";
-import { KeycloakSpinner } from "../../components/keycloak-spinner/KeycloakSpinner";
-import { useAdminClient, useFetch } from "../../context/auth/AdminClient";
-import { FormAccess } from "../../components/form-access/FormAccess";
+import { useState } from "react";
+import { Controller, FormProvider, useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { HelpItem } from "ui-shared";
-import { SaveReset } from "../advanced/SaveReset";
-import { ImportDialog } from "./ImportDialog";
-import useToggle from "../../utils/useToggle";
+
+import { adminClient } from "../../admin-client";
+import type ResourceServerRepresentation from "@keycloak/keycloak-admin-client/lib/defs/resourceServerRepresentation";
 import { useAlerts } from "../../components/alert/Alerts";
+import { FixedButtonsGroup } from "../../components/form/FixedButtonGroup";
+import { FormAccess } from "../../components/form/FormAccess";
+import { KeycloakSpinner } from "../../components/keycloak-spinner/KeycloakSpinner";
+import useToggle from "../../utils/useToggle";
 import { DecisionStrategySelect } from "./DecisionStrategySelect";
+import { ImportDialog } from "./ImportDialog";
+import { useFetch } from "../../utils/useFetch";
 
 const POLICY_ENFORCEMENT_MODES = [
   "ENFORCING",
@@ -34,14 +35,13 @@ export type FormFields = Omit<
 >;
 
 export const AuthorizationSettings = ({ clientId }: { clientId: string }) => {
-  const { t } = useTranslation("clients");
+  const { t } = useTranslation();
   const [resource, setResource] = useState<ResourceServerRepresentation>();
   const [importDialog, toggleImportDialog] = useToggle();
 
   const form = useForm<FormFields>({});
   const { control, reset, handleSubmit } = form;
 
-  const { adminClient } = useAdminClient();
   const { addAlert, addError } = useAlerts();
 
   useFetch(
@@ -50,7 +50,7 @@ export const AuthorizationSettings = ({ clientId }: { clientId: string }) => {
       setResource(resource);
       reset(resource);
     },
-    []
+    [],
   );
 
   const importResource = async (value: ResourceServerRepresentation) => {
@@ -59,7 +59,7 @@ export const AuthorizationSettings = ({ clientId }: { clientId: string }) => {
       addAlert(t("importResourceSuccess"), AlertVariant.success);
       reset({ ...value });
     } catch (error) {
-      addError("clients:importResourceError", error);
+      addError("importResourceError", error);
     }
   };
 
@@ -67,11 +67,11 @@ export const AuthorizationSettings = ({ clientId }: { clientId: string }) => {
     try {
       await adminClient.clients.updateResourceServer(
         { id: clientId },
-        resource
+        resource,
       );
       addAlert(t("updateResourceSuccess"), AlertVariant.success);
     } catch (error) {
-      addError("clients:resourceSaveError", error);
+      addError("resourceSaveError", error);
     }
   };
 
@@ -96,10 +96,7 @@ export const AuthorizationSettings = ({ clientId }: { clientId: string }) => {
           label={t("import")}
           fieldId="import"
           labelIcon={
-            <HelpItem
-              helpText={t("clients-help:import")}
-              fieldLabelId="clients:import"
-            />
+            <HelpItem helpText={t("importHelp")} fieldLabelId="import" />
           }
         >
           <Button variant="secondary" onClick={toggleImportDialog}>
@@ -111,8 +108,8 @@ export const AuthorizationSettings = ({ clientId }: { clientId: string }) => {
           label={t("policyEnforcementMode")}
           labelIcon={
             <HelpItem
-              helpText={t("clients-help:policyEnforcementMode")}
-              fieldLabelId="clients:policyEnforcementMode"
+              helpText={t("policyEnforcementModeHelp")}
+              fieldLabelId="policyEnforcementMode"
             />
           }
           fieldId="policyEnforcementMode"
@@ -150,8 +147,8 @@ export const AuthorizationSettings = ({ clientId }: { clientId: string }) => {
           fieldId="allowRemoteResourceManagement"
           labelIcon={
             <HelpItem
-              helpText={t("clients-help:allowRemoteResourceManagement")}
-              fieldLabelId="clients:allowRemoteResourceManagement"
+              helpText={t("allowRemoteResourceManagementHelp")}
+              fieldLabelId="allowRemoteResourceManagement"
             />
           }
         >
@@ -163,8 +160,8 @@ export const AuthorizationSettings = ({ clientId }: { clientId: string }) => {
             render={({ field }) => (
               <Switch
                 id="allowRemoteResourceManagement"
-                label={t("common:on")}
-                labelOff={t("common:off")}
+                label={t("on")}
+                labelOff={t("off")}
                 isChecked={field.value}
                 onChange={field.onChange}
                 aria-label={t("allowRemoteResourceManagement")}
@@ -172,10 +169,11 @@ export const AuthorizationSettings = ({ clientId }: { clientId: string }) => {
             )}
           />
         </FormGroup>
-        <SaveReset
+        <FixedButtonsGroup
           name="authenticationSettings"
           reset={() => reset(resource)}
           isActive
+          isSubmit
         />
       </FormAccess>
     </PageSection>

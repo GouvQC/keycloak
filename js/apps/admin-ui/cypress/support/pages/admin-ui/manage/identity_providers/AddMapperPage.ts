@@ -1,4 +1,4 @@
-import KeyValueInput from "../KeyValueInput";
+import LegacyKeyValueInput from "../LegacyKeyValueInput";
 
 export default class AddMapperPage {
   private mappersTab = "mappers-tab";
@@ -23,8 +23,8 @@ export default class AddMapperPage {
   private mappersUrl = "/oidc/mappers";
   private regexAttributeValuesSwitch = "are.attribute.values.regex";
   private syncmodeSelectToggle = "#syncMode";
-  private attributesKeyInput = '[data-testid="config.attributes[0].key"]';
-  private attributesValueInput = '[data-testid="config.attributes[0].value"]';
+  private attributesKeyInput = '[data-testid="config.attributes.0.key"]';
+  private attributesValueInput = '[data-testid="config.attributes.0.value"]';
   private template = "template";
   private target = "#target";
 
@@ -81,7 +81,7 @@ export default class AddMapperPage {
 
     cy.findByTestId(this.socialProfileJSONfieldPath).clear();
     cy.findByTestId(this.socialProfileJSONfieldPath).type(
-      "social profile JSON field path"
+      "social profile JSON field path",
     );
 
     cy.findByTestId(this.userAttributeName).clear();
@@ -175,7 +175,7 @@ export default class AddMapperPage {
 
     cy.findByTestId(this.userSessionAttributeValue).clear();
     cy.findByTestId(this.userSessionAttributeValue).type(
-      "user session attribute value"
+      "user session attribute value",
     );
 
     this.saveNewMapper();
@@ -323,7 +323,7 @@ export default class AddMapperPage {
     cy.findByTestId(this.socialProfileJSONfieldPath).clear();
 
     cy.findByTestId(this.socialProfileJSONfieldPath).type(
-      "social profile JSON field path edited"
+      "social profile JSON field path edited",
     );
 
     cy.findByTestId(this.userAttributeName).clear();
@@ -392,7 +392,7 @@ export default class AddMapperPage {
 
     cy.findByTestId(this.idpMapperSelect).contains("Claim to Role").click();
 
-    const keyValue = new KeyValueInput("config.claims");
+    const keyValue = new LegacyKeyValueInput("config.claims");
 
     keyValue.fillKeyValue({ key: "key", value: "value" });
 

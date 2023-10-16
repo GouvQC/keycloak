@@ -23,6 +23,7 @@ import org.keycloak.common.Profile;
 import org.keycloak.common.crypto.CryptoIntegration;
 import org.keycloak.common.util.Resteasy;
 import org.keycloak.config.ConfigProviderFactory;
+import org.keycloak.exportimport.ExportImportConfig;
 import org.keycloak.exportimport.ExportImportManager;
 import org.keycloak.exportimport.Strategy;
 import org.keycloak.models.KeycloakSession;
@@ -44,6 +45,7 @@ import org.keycloak.services.DefaultKeycloakSessionFactory;
 import org.keycloak.services.ServicesLogger;
 import org.keycloak.services.error.KeycloakErrorHandler;
 import org.keycloak.services.error.KcUnrecognizedPropertyExceptionHandler;
+import org.keycloak.services.error.KeycloakMismatchedInputExceptionHandler;
 import org.keycloak.services.filters.KeycloakSecurityHeadersFilter;
 import org.keycloak.services.managers.ApplianceBootstrap;
 import org.keycloak.services.managers.RealmManager;
@@ -52,9 +54,9 @@ import org.keycloak.services.util.ObjectMapperResolver;
 import org.keycloak.transaction.JtaTransactionManagerLookup;
 import org.keycloak.util.JsonSerialization;
 
-import javax.transaction.SystemException;
-import javax.transaction.Transaction;
-import javax.ws.rs.core.Application;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.Transaction;
+import jakarta.ws.rs.core.Application;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -64,15 +66,12 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
  * @version $Revision: 1 $
  */
 public class KeycloakApplication extends Application {
-
-    public static final AtomicBoolean BOOTSTRAP_ADMIN_USER = new AtomicBoolean(false);
 
     private static final Logger logger = Logger.getLogger(KeycloakApplication.class);
 
@@ -89,14 +88,13 @@ public class KeycloakApplication extends Application {
 
             logger.debugv("PlatformProvider: {0}", platform.getClass().getName());
             logger.debugv("RestEasy provider: {0}", Resteasy.getProvider().getClass().getName());
-            CryptoIntegration.init(KeycloakApplication.class.getClassLoader());
 
             loadConfig();
 
-            singletons.add(new RobotsResource());
-            singletons.add(new RealmsResource());
+            classes.add(RobotsResource.class);
+            classes.add(RealmsResource.class);
             if (Profile.isFeatureEnabled(Profile.Feature.ADMIN_API)) {
-                singletons.add(new AdminRoot());
+                classes.add(AdminRoot.class);
             }
             classes.add(ThemeResource.class);
 
@@ -107,9 +105,10 @@ public class KeycloakApplication extends Application {
             classes.add(KeycloakSecurityHeadersFilter.class);
             classes.add(KeycloakErrorHandler.class);
             classes.add(KcUnrecognizedPropertyExceptionHandler.class);
+            classes.add(KeycloakMismatchedInputExceptionHandler.class);
 
             singletons.add(new ObjectMapperResolver());
-            singletons.add(new WelcomeResource());
+            classes.add(WelcomeResource.class);
 
             platform.onStartup(this::startup);
             platform.onShutdown(this::shutdown);
@@ -121,6 +120,7 @@ public class KeycloakApplication extends Application {
     }
 
     protected void startup() {
+        CryptoIntegration.init(KeycloakApplication.class.getClassLoader());
         KeycloakApplication.sessionFactory = createSessionFactory();
 
         ExportImportManager[] exportImportManager = new ExportImportManager[1];
@@ -149,16 +149,6 @@ public class KeycloakApplication extends Application {
         if (exportImportManager[0].isRunExport()) {
             exportImportManager[0].runExport();
         }
-
-        KeycloakModelUtils.runJobInTransaction(sessionFactory, new KeycloakSessionTask() {
-
-            @Override
-            public void run(KeycloakSession session) {
-                boolean shouldBootstrapAdmin = new ApplianceBootstrap(session).isNoMasterUser();
-                BOOTSTRAP_ADMIN_USER.set(shouldBootstrapAdmin);
-            }
-
-        });
 
         sessionFactory.publish(new PostMigrationEvent(sessionFactory));
     }
@@ -256,7 +246,8 @@ public class KeycloakApplication extends Application {
         String dir = System.getProperty("keycloak.import");
         if (dir != null) {
             try {
-                exportImportManager.runImportAtStartup(dir, Strategy.IGNORE_EXISTING);
+                System.setProperty(ExportImportConfig.STRATEGY, Strategy.IGNORE_EXISTING.toString());
+                exportImportManager.runImportAtStartup(dir);
             } catch (IOException cause) {
                 throw new RuntimeException("Failed to import realms", cause);
             }

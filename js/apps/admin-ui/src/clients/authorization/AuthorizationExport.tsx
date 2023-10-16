@@ -9,22 +9,20 @@ import {
 import { saveAs } from "file-saver";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-
-import { useAlerts } from "../../components/alert/Alerts";
-import { FormAccess } from "../../components/form-access/FormAccess";
 import { HelpItem } from "ui-shared";
+
+import { adminClient } from "../../admin-client";
+import { useAlerts } from "../../components/alert/Alerts";
+import { FormAccess } from "../../components/form/FormAccess";
 import { KeycloakSpinner } from "../../components/keycloak-spinner/KeycloakSpinner";
 import { KeycloakTextArea } from "../../components/keycloak-text-area/KeycloakTextArea";
-import { useAdminClient, useFetch } from "../../context/auth/AdminClient";
+import { useFetch } from "../../utils/useFetch";
 import { prettyPrintJSON } from "../../util";
 import { useParams } from "../../utils/useParams";
 import type { ClientParams } from "../routes/Client";
 
-import "./authorization-details.css";
-
 export const AuthorizationExport = () => {
-  const { t } = useTranslation("clients");
-  const { adminClient } = useAdminClient();
+  const { t } = useTranslation();
   const { clientId } = useParams<ClientParams>();
   const { addAlert, addError } = useAlerts();
 
@@ -42,7 +40,7 @@ export const AuthorizationExport = () => {
       setCode(JSON.stringify(authDetails, null, 2));
       setAuthorizationDetails(authDetails);
     },
-    []
+    [],
   );
 
   const exportAuthDetails = () => {
@@ -51,7 +49,7 @@ export const AuthorizationExport = () => {
         new Blob([prettyPrintJSON(authorizationDetails)], {
           type: "application/json",
         }),
-        "test-authz-config.json"
+        "test-authz-config.json",
       );
       addAlert(t("exportAuthDetailsSuccess"), AlertVariant.success);
     } catch (error) {
@@ -70,8 +68,8 @@ export const AuthorizationExport = () => {
           label={t("authDetails")}
           labelIcon={
             <HelpItem
-              helpText={t("clients-help:authDetails")}
-              fieldLabelId="clients:authDetails"
+              helpText={t("authDetailsHelp")}
+              fieldLabelId="authDetails"
             />
           }
           fieldId="client"
@@ -82,6 +80,7 @@ export const AuthorizationExport = () => {
             resizeOrientation="vertical"
             value={code}
             aria-label={t("authDetails")}
+            rows={10}
           />
         </FormGroup>
         <ActionGroup>
@@ -89,7 +88,7 @@ export const AuthorizationExport = () => {
             data-testid="authorization-export-download"
             onClick={() => exportAuthDetails()}
           >
-            {t("common:download")}
+            {t("download")}
           </Button>
           <Button
             data-testid="authorization-export-copy"

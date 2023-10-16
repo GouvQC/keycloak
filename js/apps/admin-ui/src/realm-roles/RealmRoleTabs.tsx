@@ -13,6 +13,7 @@ import { SubmitHandler, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useLocation, useMatch, useNavigate } from "react-router-dom";
 
+import { adminClient } from "../admin-client";
 import { toClient } from "../clients/routes/Client";
 import {
   ClientRoleParams,
@@ -27,9 +28,9 @@ import {
   AttributesForm,
 } from "../components/key-value-form/AttributeForm";
 import {
+  KeyValueType,
   arrayToKeyValue,
   keyValueToArray,
-  KeyValueType,
 } from "../components/key-value-form/key-value-convert";
 import { KeycloakSpinner } from "../components/keycloak-spinner/KeycloakSpinner";
 import { PermissionsTab } from "../components/permission-tab/PermissionTab";
@@ -41,23 +42,22 @@ import {
   useRoutableTab,
 } from "../components/routable-tabs/RoutableTabs";
 import { ViewHeader } from "../components/view-header/ViewHeader";
-import { useAdminClient, useFetch } from "../context/auth/AdminClient";
 import { useRealm } from "../context/realm-context/RealmContext";
-import { useServerInfo } from "../context/server-info/ServerInfoProvider";
+import { useFetch } from "../utils/useFetch";
+import useIsFeatureEnabled, { Feature } from "../utils/useIsFeatureEnabled";
 import { useParams } from "../utils/useParams";
+import { UsersInRoleTab } from "./UsersInRoleTab";
 import { RealmRoleRoute, RealmRoleTab, toRealmRole } from "./routes/RealmRole";
 import { toRealmRoles } from "./routes/RealmRoles";
-import { UsersInRoleTab } from "./UsersInRoleTab";
 
 export default function RealmRoleTabs() {
-  const { t } = useTranslation("roles");
+  const isFeatureEnabled = useIsFeatureEnabled();
+  const { t } = useTranslation();
   const form = useForm<AttributeForm>({
     mode: "onChange",
   });
   const { control, reset, setValue } = form;
   const navigate = useNavigate();
-
-  const { adminClient } = useAdminClient();
 
   const { id, clientId } = useParams<ClientRoleParams>();
   const { pathname } = useLocation();
@@ -66,8 +66,6 @@ export default function RealmRoleTabs() {
 
   const [key, setKey] = useState(0);
   const [attributes, setAttributes] = useState<KeyValueType[] | undefined>();
-
-  const { profileInfo } = useServerInfo();
 
   const refresh = () => setKey(key + 1);
 
@@ -107,7 +105,7 @@ export default function RealmRoleTabs() {
     },
     ({ realm, role }) => {
       if (!realm || !role) {
-        throw new Error(t("common:notFound"));
+        throw new Error(t("notFound"));
       }
 
       const convertedRole = convert(role);
@@ -116,7 +114,7 @@ export default function RealmRoleTabs() {
       setAttributes(convertedRole.attributes);
       setRealm(realm);
     },
-    [key]
+    [key],
   );
 
   const onSubmit: SubmitHandler<AttributeForm> = async (formValues) => {
@@ -132,14 +130,14 @@ export default function RealmRoleTabs() {
       } else {
         await adminClient.clients.updateRole(
           { id: clientId, roleName: formValues.name! },
-          roleRepresentation
+          roleRepresentation,
         );
       }
 
       setAttributes(attributes);
       addAlert(t("roleSaveSuccess"), AlertVariant.success);
     } catch (error) {
-      addError("roles:roleSaveError", error);
+      addError("roleSaveError", error);
     }
   };
 
@@ -193,11 +191,11 @@ export default function RealmRoleTabs() {
   const permissionsTab = useTab("permissions");
 
   const [toggleDeleteDialog, DeleteConfirm] = useConfirmDialog({
-    titleKey: "roles:roleDeleteConfirm",
-    messageKey: t("roles:roleDeleteConfirmDialog", {
+    titleKey: "roleDeleteConfirm",
+    messageKey: t("roleDeleteConfirmDialog", {
       selectedRoleName: roleName || t("createRole"),
     }),
-    continueButtonLabel: "common:delete",
+    continueButtonLabel: "delete",
     continueButtonVariant: ButtonVariant.danger,
     onConfirm: async () => {
       try {
@@ -212,7 +210,7 @@ export default function RealmRoleTabs() {
         addAlert(t("roleDeletedSuccess"), AlertVariant.success);
         navigate(toOverview());
       } catch (error) {
-        addError("roles:roleDeleteError", error);
+        addError("roleDeleteError", error);
       }
     },
   });
@@ -224,7 +222,7 @@ export default function RealmRoleTabs() {
           component="button"
           onClick={() => toggleDeleteAllAssociatedRolesDialog()}
         >
-          {t("roles:removeAllAssociatedRoles")}
+          {t("removeAllAssociatedRoles")}
         </DropdownItem>,
         <DropdownItem
           key="delete-role"
@@ -258,11 +256,11 @@ export default function RealmRoleTabs() {
     toggleDeleteAllAssociatedRolesDialog,
     DeleteAllAssociatedRolesConfirm,
   ] = useConfirmDialog({
-    titleKey: t("roles:removeAllAssociatedRoles") + "?",
-    messageKey: t("roles:removeAllAssociatedRolesConfirmDialog", {
+    titleKey: t("removeAllAssociatedRoles") + "?",
+    messageKey: t("removeAllAssociatedRolesConfirmDialog", {
       name: roleName || t("createRole"),
     }),
-    continueButtonLabel: "common:delete",
+    continueButtonLabel: "delete",
     continueButtonVariant: ButtonVariant.danger,
     onConfirm: async () => {
       try {
@@ -273,12 +271,12 @@ export default function RealmRoleTabs() {
         addAlert(
           t("compositeRoleOff"),
           AlertVariant.success,
-          t("compositesRemovedAlertDescription")
+          t("compositesRemovedAlertDescription"),
         );
         navigate(toTab("details"));
         refresh();
       } catch (error) {
-        addError("roles:roleDeleteError", error);
+        addError("roleDeleteError", error);
       }
     },
   });
@@ -291,18 +289,18 @@ export default function RealmRoleTabs() {
     try {
       await adminClient.roles.createComposite(
         { roleId: id, realm: realm!.realm },
-        composites
+        composites,
       );
       refresh();
       navigate(toTab("associated-roles"));
       addAlert(t("addAssociatedRolesSuccess"), AlertVariant.success);
     } catch (error) {
-      addError("roles:addAssociatedRolesError", error);
+      addError("addAssociatedRolesError", error);
     }
   };
 
   const isDefaultRole = (name: string | undefined) =>
-    realm?.defaultRole!.name === name;
+    realm?.defaultRole && realm.defaultRole!.name === name;
 
   if (!realm) {
     return <KeycloakSpinner />;
@@ -337,7 +335,7 @@ export default function RealmRoleTabs() {
       <PageSection variant="light" className="pf-u-p-0">
         <RoutableTabs isBox mountOnEnter defaultLocation={toTab("details")}>
           <Tab
-            title={<TabTitleText>{t("common:details")}</TabTitleText>}
+            title={<TabTitleText>{t("details")}</TabTitleText>}
             {...detailsTab}
           >
             <RoleForm
@@ -371,7 +369,7 @@ export default function RealmRoleTabs() {
             <Tab
               data-testid="attributesTab"
               className="kc-attributes-tab"
-              title={<TabTitleText>{t("common:attributes")}</TabTitleText>}
+              title={<TabTitleText>{t("attributes")}</TabTitleText>}
               {...attributesTab}
             >
               <AttributesForm
@@ -391,11 +389,9 @@ export default function RealmRoleTabs() {
               <UsersInRoleTab data-cy="users-in-role-tab" />
             </Tab>
           )}
-          {!profileInfo?.disabledFeatures?.includes(
-            "ADMIN_FINE_GRAINED_AUTHZ"
-          ) && (
+          {isFeatureEnabled(Feature.AdminFineGrainedAuthz) && (
             <Tab
-              title={<TabTitleText>{t("common:permissions")}</TabTitleText>}
+              title={<TabTitleText>{t("permissions")}</TabTitleText>}
               {...permissionsTab}
             >
               <PermissionsTab id={id} type="roles" />

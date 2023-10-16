@@ -33,20 +33,20 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import org.jboss.resteasy.annotations.cache.NoCache;
 import org.keycloak.http.HttpRequest;
@@ -70,8 +70,8 @@ import org.keycloak.provider.ConfiguredProvider;
 import org.keycloak.representations.account.ClientRepresentation;
 import org.keycloak.representations.account.ConsentRepresentation;
 import org.keycloak.representations.account.ConsentScopeRepresentation;
-import org.keycloak.representations.account.UserProfileAttributeMetadata;
-import org.keycloak.representations.account.UserProfileMetadata;
+import org.keycloak.representations.idm.UserProfileAttributeMetadata;
+import org.keycloak.representations.idm.UserProfileMetadata;
 import org.keycloak.representations.account.UserRepresentation;
 import org.keycloak.representations.idm.ErrorRepresentation;
 import org.keycloak.representations.idm.GroupRepresentation;
@@ -80,11 +80,11 @@ import org.keycloak.services.managers.Auth;
 import org.keycloak.services.managers.UserConsentManager;
 import org.keycloak.services.messages.Messages;
 import org.keycloak.services.resources.account.resources.ResourcesService;
+import org.keycloak.services.resources.admin.UserProfileResource;
 import org.keycloak.services.util.ResolveRelative;
 import org.keycloak.storage.ReadOnlyException;
 import org.keycloak.theme.Theme;
 import org.keycloak.userprofile.AttributeMetadata;
-import org.keycloak.userprofile.AttributeValidatorMetadata;
 import org.keycloak.userprofile.Attributes;
 import org.keycloak.userprofile.UserProfile;
 import org.keycloak.userprofile.UserProfileContext;
@@ -153,7 +153,7 @@ public class AccountRestService {
         addReadableBuiltinAttributes(user, rep, profile.getAttributes().getReadable(true).keySet());
 
         if(userProfileMetadata == null || userProfileMetadata.booleanValue())
-            rep.setUserProfileMetadata(createUserProfileMetadata(profile));
+            rep.setUserProfileMetadata(UserProfileResource.createUserProfileMetadata(session, profile));
         
         return rep;
     }
@@ -173,37 +173,6 @@ public class AccountRestService {
         }
     }
 
-    private UserProfileMetadata createUserProfileMetadata(final UserProfile profile) {
-        Map<String, List<String>> am = profile.getAttributes().getReadable();
-        
-        if(am == null)
-            return null;
-        
-        List<UserProfileAttributeMetadata> attributes = am.keySet().stream()
-                                                          .map(name -> profile.getAttributes().getMetadata(name))
-                                                          .filter(Objects::nonNull)
-                                                          .sorted((a,b) -> Integer.compare(a.getGuiOrder(), b.getGuiOrder()))
-                                                          .map(sam -> toRestMetadata(sam, profile))
-                                                          .collect(Collectors.toList());  
-        return new UserProfileMetadata(attributes);
-    }
-
-    private UserProfileAttributeMetadata toRestMetadata(AttributeMetadata am, UserProfile profile) {
-        return new UserProfileAttributeMetadata(am.getName(), 
-                                                am.getAttributeDisplayName(), 
-                                                profile.getAttributes().isRequired(am.getName()), 
-                                                profile.getAttributes().isReadOnly(am.getName()), 
-                                                am.getAnnotations(), 
-                                                toValidatorMetadata(am));
-    }
-    
-    private Map<String, Map<String, Object>> toValidatorMetadata(AttributeMetadata am){
-        // we return only validators which are instance of ConfiguredProvider. Others are expected as internal.
-        return am.getValidators() == null ? null : am.getValidators().stream()
-                .filter(avm -> (Validators.validator(session, avm.getValidatorId()) instanceof ConfiguredProvider))
-                .collect(Collectors.toMap(AttributeValidatorMetadata::getValidatorId, AttributeValidatorMetadata::getValidatorConfig));
-    }
-    
     @Path("/")
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -229,9 +198,9 @@ public class AccountRestService {
             for(Error err: pve.getErrors()) {
                 errors.add(new ErrorRepresentation(err.getAttribute(), err.getMessage(), validationErrorParamsToString(err.getMessageParameters(), profile.getAttributes())));
             }
-            return ErrorResponse.errors(errors, pve.getStatusCode(), false);
+            throw ErrorResponse.errors(errors, pve.getStatusCode(), false);
         } catch (ReadOnlyException e) {
-            return ErrorResponse.error(Messages.READ_ONLY_USER, Response.Status.BAD_REQUEST);
+            throw ErrorResponse.error(Messages.READ_ONLY_USER, Response.Status.BAD_REQUEST);
         }
     }
 
@@ -282,6 +251,12 @@ public class AccountRestService {
         checkAccountApiEnabled();
         auth.requireOneOf(AccountRoles.MANAGE_ACCOUNT, AccountRoles.VIEW_PROFILE);
         return new ResourcesService(session, user, auth, request);
+    }
+
+    @Path("supportedLocales")
+    @GET
+    public List<String> supportedLocales() {
+        return auth.getRealm().getSupportedLocalesStream().collect(Collectors.toList());
     }
 
     private ClientRepresentation modelToRepresentation(ClientModel model, List<String> inUseClients, List<String> offlineClients, Map<String, UserConsentModel> consents) {
@@ -335,7 +310,7 @@ public class AccountRestService {
 
         ClientModel client = realm.getClientByClientId(clientId);
         if (client == null) {
-            return ErrorResponse.error("No client with clientId: " + clientId + " found.", Response.Status.NOT_FOUND);
+            throw ErrorResponse.error("No client with clientId: " + clientId + " found.", Response.Status.NOT_FOUND);
         }
 
         UserConsentModel consent = session.users().getConsentByClient(realm, user.getId(), client.getId());
@@ -363,7 +338,7 @@ public class AccountRestService {
         if (client == null) {
             String msg = String.format("No client with clientId: %s found.", clientId);
             event.error(msg);
-            return ErrorResponse.error(msg, Response.Status.NOT_FOUND);
+            throw ErrorResponse.error(msg, Response.Status.NOT_FOUND);
         }
 
         UserConsentManager.revokeConsentToClient(session, client, user);
@@ -422,7 +397,7 @@ public class AccountRestService {
         if (client == null) {
             String msg = String.format("No client with clientId: %s found.", clientId);
             event.error(msg);
-            return ErrorResponse.error(msg, Response.Status.NOT_FOUND);
+            throw ErrorResponse.error(msg, Response.Status.NOT_FOUND);
         }
 
         try {
@@ -440,7 +415,7 @@ public class AccountRestService {
             grantedConsent = session.users().getConsentByClient(realm, user.getId(), client.getId());
             return Response.ok(modelToRepresentation(grantedConsent)).build();
         } catch (IllegalArgumentException e) {
-            return ErrorResponse.error(e.getMessage(), Response.Status.BAD_REQUEST);
+            throw ErrorResponse.error(e.getMessage(), Response.Status.BAD_REQUEST);
         }
     }
 

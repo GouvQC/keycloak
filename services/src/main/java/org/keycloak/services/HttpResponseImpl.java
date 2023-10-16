@@ -20,7 +20,7 @@ package org.keycloak.services;
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.HttpHeaders;
 
 import org.keycloak.http.HttpCookie;
 import org.keycloak.http.HttpResponse;
@@ -37,6 +37,11 @@ public class HttpResponseImpl implements HttpResponse, KeycloakTransaction {
     public HttpResponseImpl(KeycloakSession session, org.jboss.resteasy.spi.HttpResponse delegate) {
         this.delegate = delegate;
         session.getTransactionManager().enlistAfterCompletion(this);
+    }
+
+    @Override
+    public int getStatus() {
+        return delegate.getStatus();
     }
 
     @Override

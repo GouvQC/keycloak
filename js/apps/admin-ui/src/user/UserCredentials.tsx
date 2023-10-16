@@ -1,18 +1,14 @@
-import {
-  DragEvent as ReactDragEvent,
-  Fragment,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import type CredentialRepresentation from "@keycloak/keycloak-admin-client/lib/defs/credentialRepresentation";
+import type UserRepresentation from "@keycloak/keycloak-admin-client/lib/defs/userRepresentation";
 import {
   AlertVariant,
-  PageSection,
-  PageSectionVariants,
   Button,
   ButtonVariant,
   Divider,
+  PageSection,
+  PageSectionVariants,
 } from "@patternfly/react-core";
+import styles from "@patternfly/react-styles/css/components/Table/table";
 import {
   TableComposable,
   Tbody,
@@ -21,23 +17,30 @@ import {
   Thead,
   Tr,
 } from "@patternfly/react-table";
-import type UserRepresentation from "@keycloak/keycloak-admin-client/lib/defs/userRepresentation";
+import {
+  Fragment,
+  DragEvent as ReactDragEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
-import { useAlerts } from "../components/alert/Alerts";
-import { ListEmptyState } from "../components/list-empty-state/ListEmptyState";
-import { useAdminClient, useFetch } from "../context/auth/AdminClient";
 import { HelpItem } from "ui-shared";
+
+import { adminClient } from "../admin-client";
+import { useAlerts } from "../components/alert/Alerts";
 import { useConfirmDialog } from "../components/confirm-dialog/ConfirmDialog";
-import type CredentialRepresentation from "@keycloak/keycloak-admin-client/lib/defs/credentialRepresentation";
-import { ResetPasswordDialog } from "./user-credentials/ResetPasswordDialog";
-import { ResetCredentialDialog } from "./user-credentials/ResetCredentialDialog";
-import { InlineLabelEdit } from "./user-credentials/InlineLabelEdit";
-import styles from "@patternfly/react-styles/css/components/Table/table";
-import { CredentialRow } from "./user-credentials/CredentialRow";
+import { KeycloakSpinner } from "../components/keycloak-spinner/KeycloakSpinner";
+import { ListEmptyState } from "../components/list-empty-state/ListEmptyState";
 import { toUpperCase } from "../util";
+import { useFetch } from "../utils/useFetch";
+import { FederatedUserLink } from "./FederatedUserLink";
+import { CredentialRow } from "./user-credentials/CredentialRow";
+import { InlineLabelEdit } from "./user-credentials/InlineLabelEdit";
+import { ResetCredentialDialog } from "./user-credentials/ResetCredentialDialog";
+import { ResetPasswordDialog } from "./user-credentials/ResetPasswordDialog";
 
 import "./user-credentials.css";
-import { FederatedCredentials } from "./user-credentials/FederatedCredentials";
 
 type UserCredentialsProps = {
   user: UserRepresentation;
@@ -50,13 +53,12 @@ type ExpandableCredentialRepresentation = {
 };
 
 export const UserCredentials = ({ user }: UserCredentialsProps) => {
-  const { t } = useTranslation("users");
+  const { t } = useTranslation();
   const { addAlert, addError } = useAlerts();
   const [key, setKey] = useState(0);
   const refresh = () => setKey(key + 1);
   const [isOpen, setIsOpen] = useState(false);
   const [openCredentialReset, setOpenCredentialReset] = useState(false);
-  const { adminClient } = useAdminClient();
   const [userCredentials, setUserCredentials] = useState<
     CredentialRepresentation[]
   >([]);
@@ -91,21 +93,21 @@ export const UserCredentials = ({ user }: UserCredentialsProps) => {
       }, Object.create(null));
 
       const groupedCredentialsArray = Object.keys(groupedCredentials).map(
-        (key) => ({ key, value: groupedCredentials[key] })
+        (key) => ({ key, value: groupedCredentials[key] }),
       );
 
       setGroupedUserCredentials(
         groupedCredentialsArray.map((groupedCredential) => ({
           ...groupedCredential,
           isExpanded: false,
-        }))
+        })),
       );
     },
-    [key]
+    [key],
   );
 
   const passwordTypeFinder = userCredentials.find(
-    (credential) => credential.type === "password"
+    (credential) => credential.type === "password",
   );
 
   const toggleModal = () => setIsOpen(!isOpen);
@@ -122,7 +124,7 @@ export const UserCredentials = ({ user }: UserCredentialsProps) => {
   const [toggleDeleteDialog, DeleteConfirm] = useConfirmDialog({
     titleKey: t("deleteCredentialsConfirmTitle"),
     messageKey: t("deleteCredentialsConfirm"),
-    continueButtonLabel: t("common:delete"),
+    continueButtonLabel: t("delete"),
     continueButtonVariant: ButtonVariant.danger,
     onConfirm: async () => {
       try {
@@ -133,7 +135,7 @@ export const UserCredentials = ({ user }: UserCredentialsProps) => {
         addAlert(t("deleteCredentialsSuccess"), AlertVariant.success);
         setKey((key) => key + 1);
       } catch (error) {
-        addError("users:deleteCredentialsError", error);
+        addError("deleteCredentialsError", error);
       }
     },
   });
@@ -177,7 +179,7 @@ export const UserCredentials = ({ user }: UserCredentialsProps) => {
           ? groupedCredential.value.map((c) => c.id!)
           : []),
       ]),
-    [groupedUserCredentials]
+    [groupedUserCredentials],
   );
 
   const onDragStart = (evt: ReactDragEvent) => {
@@ -265,7 +267,7 @@ export const UserCredentials = ({ user }: UserCredentialsProps) => {
     } else {
       const dragId = curListItem.id;
       const draggingToItemIndex = Array.from(
-        bodyRef.current?.children || []
+        bodyRef.current?.children || [],
       ).findIndex((item) => item.id === dragId);
       if (draggingToItemIndex === state.draggingToItemIndex) {
         return;
@@ -273,7 +275,7 @@ export const UserCredentials = ({ user }: UserCredentialsProps) => {
       const tempItemOrder = moveItem(
         itemOrder,
         state.draggedItemId,
-        draggingToItemIndex
+        draggingToItemIndex,
       );
       move(tempItemOrder);
       setState({
@@ -323,11 +325,31 @@ export const UserCredentials = ({ user }: UserCredentialsProps) => {
         }
 
       refresh();
-      addAlert(t("users:updatedCredentialMoveSuccess"), AlertVariant.success);
+      addAlert(t("updatedCredentialMoveSuccess"), AlertVariant.success);
     } catch (error) {
-      addError("users:updatedCredentialMoveError", error);
+      addError("updatedCredentialMoveError", error);
     }
   };
+
+  const useFederatedCredentials = user.federationLink || user.origin;
+  const [credentialTypes, setCredentialTypes] = useState<string[]>([]);
+
+  useFetch(
+    () => adminClient.users.getUserStorageCredentialTypes({ id: user.id! }),
+    setCredentialTypes,
+    [],
+  );
+
+  if (!credentialTypes) {
+    return <KeycloakSpinner />;
+  }
+
+  const hasCredentialTypes = credentialTypes.length > 0;
+  const noCredentials = groupedUserCredentials.length === 0;
+  const noFederatedCredentials =
+    !user.credentials || user.credentials.length === 0;
+  const emptyState =
+    noCredentials && noFederatedCredentials && !hasCredentialTypes;
 
   return (
     <>
@@ -346,6 +368,16 @@ export const UserCredentials = ({ user }: UserCredentialsProps) => {
         />
       )}
       <DeleteConfirm />
+      {user.email && !emptyState && (
+        <Button
+          className="kc-resetCredentialBtn-header"
+          variant="primary"
+          data-testid="credentialResetBtn"
+          onClick={() => setOpenCredentialReset(true)}
+        >
+          {t("credentialResetBtn")}
+        </Button>
+      )}
       {userCredentials.length !== 0 && passwordTypeFinder === undefined && (
         <>
           <Button
@@ -363,156 +395,171 @@ export const UserCredentials = ({ user }: UserCredentialsProps) => {
         </>
       )}
       {groupedUserCredentials.length !== 0 && (
-        <>
-          {user.email && (
-            <Button
-              className="kc-resetCredentialBtn-header"
-              variant="primary"
-              data-testid="credentialResetBtn"
-              onClick={() => setOpenCredentialReset(true)}
+        <PageSection variant={PageSectionVariants.light}>
+          <TableComposable variant={"compact"}>
+            <Thead>
+              <Tr className="kc-table-header">
+                <Th>
+                  <HelpItem
+                    helpText={t("userCredentialsHelpText")}
+                    fieldLabelId="userCredentialsHelpTextLabel"
+                  />
+                </Th>
+                <Th aria-hidden="true" />
+                <Th>{t("type")}</Th>
+                <Th>{t("userLabel")}</Th>
+                <Th>{t("createdAt")}</Th>
+                <Th>{t("data")}</Th>
+                <Th aria-hidden="true" />
+                <Th aria-hidden="true" />
+              </Tr>
+            </Thead>
+            <Tbody
+              ref={bodyRef}
+              onDragOver={onDragOver}
+              onDrop={onDragOver}
+              onDragLeave={onDragLeave}
             >
-              {t("credentialResetBtn")}
-            </Button>
-          )}
-          <PageSection variant={PageSectionVariants.light}>
-            <TableComposable variant={"compact"}>
-              <Thead>
-                <Tr className="kc-table-header">
-                  <Th>
-                    <HelpItem
-                      helpText={t("users:userCredentialsHelpText")}
-                      fieldLabelId="users:userCredentialsHelpTextLabel"
+              {groupedUserCredentials.map((groupedCredential, rowIndex) => (
+                <Fragment key={groupedCredential.key}>
+                  <Tr
+                    id={groupedCredential.value.map(({ id }) => id).toString()}
+                    draggable={groupedUserCredentials.length > 1}
+                    onDrop={onDrop}
+                    onDragEnd={onDragEnd}
+                    onDragStart={onDragStart}
+                  >
+                    <Td
+                      className={
+                        groupedUserCredentials.length === 1 ? "one-row" : ""
+                      }
+                      draggableRow={{
+                        id: `draggable-row-${groupedCredential.value.map(
+                          ({ id }) => id,
+                        )}`,
+                      }}
                     />
-                  </Th>
-                  <Th />
-                  <Th>{t("type")}</Th>
-                  <Th>{t("userLabel")}</Th>
-                  <Th>{t("data")}</Th>
-                  <Th />
-                  <Th />
-                </Tr>
-              </Thead>
-              <Tbody
-                ref={bodyRef}
-                onDragOver={onDragOver}
-                onDrop={onDragOver}
-                onDragLeave={onDragLeave}
-              >
-                {groupedUserCredentials.map((groupedCredential, rowIndex) => (
-                  <Fragment key={groupedCredential.key}>
-                    <Tr
-                      id={groupedCredential.value
-                        .map(({ id }) => id)
-                        .toString()}
-                      draggable={groupedUserCredentials.length > 1}
-                      onDrop={onDrop}
-                      onDragEnd={onDragEnd}
-                      onDragStart={onDragStart}
-                    >
+                    {groupedCredential.value.length > 1 ? (
                       <Td
-                        className={
-                          groupedUserCredentials.length === 1 ? "one-row" : ""
-                        }
-                        draggableRow={{
-                          id: `draggable-row-${groupedCredential.value.map(
-                            ({ id }) => id
-                          )}`,
+                        className="kc-expandRow-btn"
+                        expand={{
+                          rowIndex,
+                          isExpanded: groupedCredential.isExpanded,
+                          onToggle: (_, rowIndex) => {
+                            const rows = groupedUserCredentials.map(
+                              (credential, index) =>
+                                index === rowIndex
+                                  ? {
+                                      ...credential,
+                                      isExpanded: !credential.isExpanded,
+                                    }
+                                  : credential,
+                            );
+                            setGroupedUserCredentials(rows);
+                          },
                         }}
                       />
-                      {groupedCredential.value.length > 1 ? (
+                    ) : (
+                      <Td />
+                    )}
+                    <Td
+                      dataLabel={`columns-${groupedCredential.key}`}
+                      className="kc-notExpandableRow-credentialType"
+                      data-testid="credentialType"
+                    >
+                      {toUpperCase(groupedCredential.key)}
+                    </Td>
+                    {groupedCredential.value.length <= 1 &&
+                      groupedCredential.value.map((credential) => (
+                        <Row key={credential.id} credential={credential} />
+                      ))}
+                  </Tr>
+                  {groupedCredential.isExpanded &&
+                    groupedCredential.value.map((credential) => (
+                      <Tr
+                        key={credential.id}
+                        id={credential.id}
+                        draggable
+                        onDrop={onDrop}
+                        onDragEnd={onDragEnd}
+                        onDragStart={onDragStart}
+                      >
+                        <Td />
                         <Td
-                          className="kc-expandRow-btn"
-                          expand={{
-                            rowIndex,
-                            isExpanded: groupedCredential.isExpanded,
-                            onToggle: (_, rowIndex) => {
-                              const rows = groupedUserCredentials.map(
-                                (credential, index) =>
-                                  index === rowIndex
-                                    ? {
-                                        ...credential,
-                                        isExpanded: !credential.isExpanded,
-                                      }
-                                    : credential
-                              );
-                              setGroupedUserCredentials(rows);
-                            },
+                          className="kc-draggable-dropdown-type-icon"
+                          draggableRow={{
+                            id: `draggable-row-${groupedCredential.value.map(
+                              ({ id }) => id,
+                            )}`,
                           }}
                         />
-                      ) : (
-                        <Td />
-                      )}
-                      <Td
-                        dataLabel={`columns-${groupedCredential.key}`}
-                        className="kc-notExpandableRow-credentialType"
-                        data-testid="credentialType"
-                      >
-                        {toUpperCase(groupedCredential.key)}
-                      </Td>
-                      {groupedCredential.value.length <= 1 &&
-                        groupedCredential.value.map((credential) => (
-                          <Row key={credential.id} credential={credential} />
-                        ))}
-                    </Tr>
-                    {groupedCredential.isExpanded &&
-                      groupedCredential.value.map((credential) => (
-                        <Tr
-                          key={credential.id}
-                          id={credential.id}
-                          draggable
-                          onDrop={onDrop}
-                          onDragEnd={onDragEnd}
-                          onDragStart={onDragStart}
+                        <Td
+                          dataLabel={`child-columns-${credential.id}`}
+                          className="kc-expandableRow-credentialType"
                         >
-                          <Td />
-                          <Td
-                            className="kc-draggable-dropdown-type-icon"
-                            draggableRow={{
-                              id: `draggable-row-${groupedCredential.value.map(
-                                ({ id }) => id
-                              )}`,
-                            }}
-                          />
-                          <Td
-                            dataLabel={`child-columns-${credential.id}`}
-                            className="kc-expandableRow-credentialType"
-                          >
-                            {toUpperCase(credential.type!)}
-                          </Td>
-                          <Row credential={credential} />
-                        </Tr>
-                      ))}
-                  </Fragment>
-                ))}
-              </Tbody>
-            </TableComposable>
-          </PageSection>
-        </>
+                          {toUpperCase(credential.type!)}
+                        </Td>
+                        <Row credential={credential} />
+                      </Tr>
+                    ))}
+                </Fragment>
+              ))}
+            </Tbody>
+          </TableComposable>
+        </PageSection>
       )}
-      {(user.federationLink || user.origin) && (
-        <FederatedCredentials user={user} onSetPassword={toggleModal} />
+      {useFederatedCredentials && hasCredentialTypes && (
+        <PageSection variant={PageSectionVariants.light}>
+          <TableComposable variant="compact">
+            <Thead>
+              <Tr>
+                <Th>{t("type")}</Th>
+                <Th>{t("providedBy")}</Th>
+                <Th aria-hidden="true" />
+              </Tr>
+            </Thead>
+            <Tbody>
+              {credentialTypes.map((credential) => (
+                <Tr key={credential}>
+                  <Td>
+                    <b>{credential}</b>
+                  </Td>
+                  <Td>
+                    <FederatedUserLink user={user} />
+                  </Td>
+                  {credential === "password" && (
+                    <Td modifier="fitContent">
+                      <Button variant="secondary" onClick={toggleModal}>
+                        {t("setPassword")}
+                      </Button>
+                    </Td>
+                  )}
+                </Tr>
+              ))}
+            </Tbody>
+          </TableComposable>
+        </PageSection>
       )}
-      {groupedUserCredentials.length === 0 &&
-        !(user.federationLink || user.origin) && (
-          <ListEmptyState
-            hasIcon
-            message={t("noCredentials")}
-            instructions={t("noCredentialsText")}
-            primaryActionText={t("setPassword")}
-            onPrimaryAction={toggleModal}
-            secondaryActions={
-              user.email
-                ? [
-                    {
-                      text: t("credentialResetBtn"),
-                      onClick: toggleCredentialsResetModal,
-                      type: ButtonVariant.link,
-                    },
-                  ]
-                : undefined
-            }
-          />
-        )}
+      {emptyState && (
+        <ListEmptyState
+          hasIcon
+          message={t("noCredentials")}
+          instructions={t("noCredentialsText")}
+          primaryActionText={t("setPassword")}
+          onPrimaryAction={toggleModal}
+          secondaryActions={
+            user.email
+              ? [
+                  {
+                    text: t("credentialResetBtn"),
+                    onClick: toggleCredentialsResetModal,
+                    type: ButtonVariant.link,
+                  },
+                ]
+              : undefined
+          }
+        />
+      )}
     </>
   );
 };

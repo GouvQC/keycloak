@@ -17,7 +17,6 @@
 
 package org.keycloak.protocol.oidc;
 
-import com.google.common.collect.Streams;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.authentication.ClientAuthenticator;
 import org.keycloak.authentication.ClientAuthenticatorFactory;
@@ -48,12 +47,13 @@ import org.keycloak.services.Urls;
 import org.keycloak.services.clientregistration.ClientRegistrationService;
 import org.keycloak.services.clientregistration.oidc.OIDCClientRegistrationProviderFactory;
 import org.keycloak.services.resources.RealmsResource;
+import org.keycloak.services.util.DPoPUtil;
 import org.keycloak.urls.UrlType;
 import org.keycloak.util.JsonSerialization;
 import org.keycloak.wellknown.WellKnownProvider;
 
-import javax.ws.rs.core.UriBuilder;
-import javax.ws.rs.core.UriInfo;
+import jakarta.ws.rs.core.UriBuilder;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.AbstractMap;
@@ -190,6 +190,8 @@ public class OIDCWellKnownProvider implements WellKnownProvider {
         // https://tools.ietf.org/html/draft-ietf-oauth-mtls-08#section-6.2
         config.setTlsClientCertificateBoundAccessTokens(true);
 
+        config.setDpopSigningAlgValuesSupported(new ArrayList<>(DPoPUtil.DPOP_SUPPORTED_ALGS));
+
         URI revocationEndpoint = frontendUriBuilder.clone().path(OIDCLoginProtocolService.class, "revoke")
             .build(realm.getName(), OIDCLoginProtocol.LOGIN_PROTOCOL);
 
@@ -211,6 +213,8 @@ public class OIDCWellKnownProvider implements WellKnownProvider {
 
         MTLSEndpointAliases mtlsEndpointAliases = getMtlsEndpointAliases(config);
         config.setMtlsEndpointAliases(mtlsEndpointAliases);
+
+        config.setAuthorizationResponseIssParameterSupported(true);
 
         config = checkConfigOverride(config);
         return config;
@@ -237,7 +241,7 @@ public class OIDCWellKnownProvider implements WellKnownProvider {
                 .map(ProviderFactory::getId);
 
         if (includeNone) {
-            supportedAlgorithms = Streams.concat(supportedAlgorithms, Stream.of("none"));
+            supportedAlgorithms = Stream.concat(supportedAlgorithms, Stream.of("none"));
         }
         return supportedAlgorithms.collect(Collectors.toList());
     }

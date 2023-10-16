@@ -18,17 +18,14 @@
 package org.keycloak.models.map.storage.jpa;
 
 import org.hibernate.Session;
-import org.hibernate.engine.query.spi.sql.NativeSQLQueryReturn;
-import org.hibernate.engine.query.spi.sql.NativeSQLQuerySpecification;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.jboss.logging.Logger;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Pattern;
@@ -46,7 +43,7 @@ public class JpaMapUtils {
 
     public static String getSchemaForNativeQuery(EntityManager em) {
         String schema = (String) em.getEntityManagerFactory().getProperties().get(HIBERNATE_DEFAULT_SCHEMA);
-        return (schema == null) ? "" : schema + ".";
+        return (schema == null) ? "" : "\"" + schema + "\".";
     }
 
     /**
@@ -149,11 +146,8 @@ public class JpaMapUtils {
         SessionFactoryImplementor sessionFactory = entityManager.getEntityManagerFactory().unwrap(SessionFactoryImplementor.class);
 
         if (isNative) {
-            NativeSQLQuerySpecification spec = new NativeSQLQuerySpecification(querySql, new NativeSQLQueryReturn[0], Collections.emptySet());
-            sessionFactory.getQueryPlanCache().getNativeSQLQueryPlan(spec);
             sessionFactory.addNamedQuery(queryName, entityManager.createNativeQuery(querySql));
         } else {
-            sessionFactory.getQueryPlanCache().getHQLQueryPlan(querySql, false, Collections.emptyMap());
             sessionFactory.addNamedQuery(queryName, entityManager.createQuery(querySql));
         }
     }

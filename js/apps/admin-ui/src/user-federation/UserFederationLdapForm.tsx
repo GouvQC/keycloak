@@ -1,11 +1,12 @@
 import type ComponentRepresentation from "@keycloak/keycloak-admin-client/lib/defs/componentRepresentation";
-import { ActionGroup, Button, Form } from "@patternfly/react-core";
+import { Button, Form } from "@patternfly/react-core";
 import { useFormContext } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
 import { ScrollForm } from "../components/scroll-form/ScrollForm";
 import { useRealm } from "../context/realm-context/RealmContext";
+import useIsFeatureEnabled, { Feature } from "../utils/useIsFeatureEnabled";
 import { LdapSettingsAdvanced } from "./ldap/LdapSettingsAdvanced";
 import { LdapSettingsConnection } from "./ldap/LdapSettingsConnection";
 import { LdapSettingsGeneral } from "./ldap/LdapSettingsGeneral";
@@ -14,7 +15,7 @@ import { LdapSettingsSearching } from "./ldap/LdapSettingsSearching";
 import { LdapSettingsSynchronization } from "./ldap/LdapSettingsSynchronization";
 import { toUserFederation } from "./routes/UserFederation";
 import { SettingsCache } from "./shared/SettingsCache";
-import { useServerInfo } from "../context/server-info/ServerInfoProvider";
+import { FixedButtonsGroup } from "../components/form/FixedButtonGroup";
 
 export type LdapComponentRepresentation = ComponentRepresentation & {
   config?: {
@@ -32,12 +33,11 @@ export const UserFederationLdapForm = ({
   id,
   onSubmit,
 }: UserFederationLdapFormProps) => {
-  const { t } = useTranslation("user-federation");
+  const { t } = useTranslation();
   const form = useFormContext<LdapComponentRepresentation>();
   const navigate = useNavigate();
   const { realm } = useRealm();
-  const kerberosDisabled =
-    useServerInfo().profileInfo?.disabledFeatures?.includes("KERBEROS");
+  const isFeatureEnabled = useIsFeatureEnabled();
 
   return (
     <>
@@ -62,7 +62,7 @@ export const UserFederationLdapForm = ({
           {
             title: t("kerberosIntegration"),
             panel: <LdapSettingsKerberosIntegration form={form} />,
-            isHidden: kerberosDisabled,
+            isHidden: !isFeatureEnabled(Feature.Kerberos),
           },
           { title: t("cacheSettings"), panel: <SettingsCache form={form} /> },
           {
@@ -72,30 +72,26 @@ export const UserFederationLdapForm = ({
         ]}
       />
       <Form onSubmit={form.handleSubmit(onSubmit)}>
-        <ActionGroup className="keycloak__form_actions">
-          <Button
-            isDisabled={!form.formState.isDirty}
-            variant="primary"
-            type="submit"
-            data-testid="ldap-save"
-          >
-            {t("common:save")}
-          </Button>
+        <FixedButtonsGroup
+          name="ldap"
+          isActive={form.formState.isDirty}
+          isSubmit
+        >
           <Button
             variant="link"
             onClick={() => navigate(toUserFederation({ realm }))}
             data-testid="ldap-cancel"
           >
-            {t("common:cancel")}
+            {t("cancel")}
           </Button>
-        </ActionGroup>
+        </FixedButtonsGroup>
       </Form>
     </>
   );
 };
 
 export function serializeFormData(
-  formData: LdapComponentRepresentation
+  formData: LdapComponentRepresentation,
 ): LdapComponentRepresentation {
   const { config } = formData;
 

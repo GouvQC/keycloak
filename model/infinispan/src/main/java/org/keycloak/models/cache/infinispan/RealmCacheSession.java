@@ -277,6 +277,7 @@ public class RealmCacheSession implements CacheRealmProvider {
 
     private void invalidateGroup(String id, String realmId, boolean invalidateQueries) {
         invalidateGroup(id);
+        cache.groupNameInvalidations(id, invalidations);
         if (invalidateQueries) {
             cache.groupQueriesInvalidations(realmId, invalidations);
         }
@@ -405,26 +406,38 @@ public class RealmCacheSession implements CacheRealmProvider {
 
     @Override
     public RealmModel getRealm(String id) {
-        CachedRealm cached = cache.get(id, CachedRealm.class);
-        if (cached != null) {
-            logger.tracev("by id cache hit: {0}", cached.getName());
-        }
-        boolean wasCached = false;
-        if (cached == null) {
-            Long loaded = cache.getCurrentRevision(id);
-            RealmModel model = getRealmDelegate().getRealm(id);
-            if (model == null) return null;
-            if (invalidations.contains(id)) return model;
-            cached = new CachedRealm(loaded, model);
-            cache.addRevisioned(cached, startupRevision);
-            wasCached =true;
-        } else if (invalidations.contains(id)) {
+        if (invalidations.contains(id)) {
             return getRealmDelegate().getRealm(id);
         } else if (managedRealms.containsKey(id)) {
             return managedRealms.get(id);
         }
-        RealmAdapter adapter = new RealmAdapter(session, cached, this);
-        if (wasCached) {
+        CachedRealm cached = cache.get(id, CachedRealm.class);
+        RealmAdapter adapter;
+        if (cached != null) {
+            logger.tracev("by id cache hit: {0}", cached.getName());
+            adapter = new RealmAdapter(session, cached, this);
+        } else {
+            adapter = cache.computeSerialized(session, id, this::prepareCachedRealm);
+            if (adapter == null) {
+                return null;
+            }
+        }
+        managedRealms.put(id, adapter);
+        return adapter;
+    }
+
+    private RealmAdapter prepareCachedRealm(String id, KeycloakSession session) {
+        CachedRealm cached = cache.get(id, CachedRealm.class);
+        RealmAdapter adapter;
+        if (cached == null) {
+            Long loaded = cache.getCurrentRevision(id);
+            RealmModel model = getRealmDelegate().getRealm(id);
+            if (model == null) {
+                return null;
+            }
+            cached = new CachedRealm(loaded, model);
+            cache.addRevisioned(cached, startupRevision);
+            adapter = new RealmAdapter(session, cached, this);
             CachedRealmModel.RealmCachedEvent event = new CachedRealmModel.RealmCachedEvent() {
                 @Override
                 public CachedRealmModel getRealm() {
@@ -437,8 +450,10 @@ public class RealmCacheSession implements CacheRealmProvider {
                 }
             };
             session.getKeycloakSessionFactory().publish(event);
+        } else {
+            adapter = new RealmAdapter(session, cached, this);
+            logger.tracev("by id cache hit after locking: {0}", cached.getName());
         }
-        managedRealms.put(id, adapter);
         return adapter;
     }
 
@@ -550,6 +565,14 @@ public class RealmCacheSession implements CacheRealmProvider {
         return realm + ".top.groups";
     }
 
+    static String getGroupByNameCacheKey(String realm, String parentId, String name) {
+        if (parentId != null) {
+            return realm + ".group." + parentId + "." + name;
+        } else {
+            return realm + ".group.top." + name;
+        }
+    }
+
     static String getRolesCacheKey(String container) {
         return container + ROLES_QUERY_SUFFIX;
     }
@@ -597,7 +620,7 @@ public class RealmCacheSession implements CacheRealmProvider {
         client.getRolesStream().forEach(role -> {
             roleRemovalInvalidations(role.getId(), role.getName(), client.getId());
         });
-        
+
         if (client.isServiceAccountsEnabled()) {
             UserModel serviceAccount = session.users().getServiceAccount(client);
 
@@ -870,6 +893,33 @@ public class RealmCacheSession implements CacheRealmProvider {
         GroupAdapter adapter = new GroupAdapter(cached, this, session, realm);
         managedGroups.put(id, adapter);
         return adapter;
+    }
+
+    @Override
+    public GroupModel getGroupByName(RealmModel realm, GroupModel parent, String name) {
+        String cacheKey = getGroupByNameCacheKey(realm.getId(), parent != null? parent.getId(): null, name);
+        GroupNameQuery query = cache.get(cacheKey, GroupNameQuery.class);
+        if (query != null) {
+            logger.tracev("Group by name cache hit: {0}", name);
+        }
+        if (query == null) {
+            Long loaded = cache.getCurrentRevision(cacheKey);
+            GroupModel model = getGroupDelegate().getGroupByName(realm, parent, name);
+            if (model == null) return null;
+            if (invalidations.contains(model.getId())) return model;
+            query = new GroupNameQuery(loaded, cacheKey, model.getId(), realm);
+            cache.addRevisioned(query, startupRevision);
+            return model;
+        } else if (invalidations.contains(cacheKey)) {
+            return getGroupDelegate().getGroupByName(realm, parent, name);
+        } else {
+            String groupId = query.getGroupId();
+            if (invalidations.contains(groupId)) {
+                return getGroupDelegate().getGroupByName(realm, parent, name);
+            }
+            return getGroupById(realm, groupId);
+        }
+
     }
 
     @Override
@@ -1166,6 +1216,9 @@ public class RealmCacheSession implements CacheRealmProvider {
         StorageId storageId = new StorageId(cached.getId());
         if (!storageId.isLocal()) {
             ComponentModel component = realm.getComponent(storageId.getProviderId());
+            if (component == null) {
+                return null;
+            }
             ClientStorageProviderModel model = new ClientStorageProviderModel(component);
 
             // although we do set a timeout, Infinispan has no guarantees when the user will be evicted
